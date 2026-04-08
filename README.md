@@ -146,6 +146,12 @@ aws-vault exec personal-dev-source -- cdk destroy
 #### S3 バケット一覧
 ![s3 bucket](docs/screenshots/03_s3_bucket.png)
 
+### Phase 4: cdk destroy（リソース全削除）
+
+#### CloudFormation スタック一覧（destroy 後）
+`AwsCdkMultimodalStack` が削除され `CDKToolkit` のみ残存。S3・Lambda・DynamoDB がすべて削除された状態。
+![cfn stack destroyed](docs/screenshots/08_cfn_stack_destroyed.png)
+
 ### Phase 3: DynamoDB 追加・Lambda から書き込み
 
 #### DynamoDB テーブル一覧
