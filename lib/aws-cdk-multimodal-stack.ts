@@ -1,5 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import { Construct } from 'constructs';
 
 export class AwsCdkMultimodalStack extends cdk.Stack {
@@ -7,31 +9,46 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
     super(scope, id, props);
 
     // ── S3 バケット（業務文書アップロード先） ──────────────────
-    // Terraform の aws_s3_bucket + パブリックアクセスブロック + 暗号化 が
-    // CDK では new s3.Bucket() 1つにまとまる
     const docsBucket = new s3.Bucket(this, 'DocsBucket', {
-      // バケット名は CDK が自動生成（スタック名 + ランダムサフィックス）
-      // 明示的に指定したい場合: bucketName: 'my-bucket-name'
-
-      // パブリックアクセスを全ブロック（セキュリティ必須）
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-
-      // AES-256 サーバーサイド暗号化
       encryption: s3.BucketEncryption.S3_MANAGED,
-
-      // バージョニング有効（誤削除対策）
       versioned: true,
-
-      // スタック削除時にバケットも削除する（学習用設定）
-      // 本番では RETAIN にして誤削除を防ぐ
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });
 
-    // ── Outputs（terraform output 相当） ───────────────────────
+    // ── Lambda（S3 アップロード検知） ──────────────────────────
+    // Terraform では aws_lambda_function + aws_s3_bucket_notification +
+    // aws_lambda_permission を個別に書く必要があるが、
+    // CDK では addEventNotification() 1行で Lambda トリガー + IAM 権限が完結する
+    const processDocFn = new lambda.Function(this, 'ProcessDocFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'lambda_function.lambda_handler',
+      code: lambda.Code.fromAsset('lambda_src/process_doc'),
+      environment: {
+        BUCKET_NAME: docsBucket.bucketName,
+      },
+      timeout: cdk.Duration.seconds(30),
+    });
+
+    // S3 バケットへの読み取り権限を Lambda に付与（IAM ポリシーを自動生成）
+    docsBucket.grantRead(processDocFn);
+
+    // S3 ObjectCreated イベントで Lambda を起動（トリガー設定）
+    docsBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(processDocFn),
+    );
+
+    // ── Outputs ───────────────────────────────────────────────
     new cdk.CfnOutput(this, 'BucketName', {
       value: docsBucket.bucketName,
       description: 'ファイルアップロード先 S3 バケット名',
+    });
+
+    new cdk.CfnOutput(this, 'LambdaFunctionName', {
+      value: processDocFn.functionName,
+      description: 'S3 アップロード検知 Lambda 関数名',
     });
   }
 }
