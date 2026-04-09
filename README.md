@@ -7,12 +7,14 @@ Terraform との比較を意識しながら、CDK の基本的な使い方（syn
 
 ## アーキテクチャ
 
+![アーキテクチャ図](docs/cdk-multimodal-architecture.drawio.png)
+
 ```
 CDK TypeScript コード
   ↓ cdk synth
 CloudFormation テンプレート（自動生成）
   ↓ cdk deploy
-S3 バケット（暗号化・バージョニング・パブリックアクセスブロック）
+S3 バケット → Lambda（S3 イベントトリガー）→ DynamoDB（アップロード履歴記録）
 ```
 
 ---

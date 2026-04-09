@@ -1,0 +1,97 @@
+<mxfile host="Electron" version="29.6.1">
+  <diagram id="cdk-multimodal-arch" name="ページ-1">
+    <mxGraphModel adaptiveColors="auto" dx="1010" dy="764" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- タイトル -->
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=17;fontStyle=1;fontColor=#232F3E;" value="CDK マルチモーダル: S3 + Lambda + DynamoDB イベント駆動アーキテクチャ" vertex="1">
+          <mxGeometry x="60" y="15" width="980" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;fontColor=#666666;" value="aws-cdk-multimodal  |  AWS CDK (TypeScript)  |  ap-northeast-1 (東京)" vertex="1">
+          <mxGeometry x="60" y="50" width="980" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- クライアント領域 -->
+        <mxCell id="client-bg" parent="1" style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_corporate_data_center;strokeColor=#147EBA;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=0;" value="クライアント" vertex="1">
+          <mxGeometry x="8" y="120" width="155" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="user-icon" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3E;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.user;" value="ユーザー" vertex="1">
+          <mxGeometry x="55" y="158" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- AWS Cloud 境界 -->
+        <mxCell id="aws-cloud" parent="1" style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#AAB7B8;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#AAB7B8;dashed=0;" value="AWS Cloud (ap-northeast-1)" vertex="1">
+          <mxGeometry x="235" y="88" width="840" height="590" as="geometry" />
+        </mxCell>
+
+        <!-- CDK ノート -->
+        <mxCell id="note-cdk" parent="1" style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_note;strokeColor=#AAB7B8;fillColor=#F2F3F4;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;" value="&lt;b&gt;AWS CDK (TypeScript)&lt;/b&gt;&#xa;cdk synth → CloudFormation 自動生成&#xa;IAM / S3 通知 / Lambda Permission 自動作成" vertex="1">
+          <mxGeometry x="245" y="97" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- S3 アイコン -->
+        <mxCell id="s3-icon" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" value="Amazon S3&#xa;DocsBucket&#xa;(暗号化・バージョニング)" vertex="1">
+          <mxGeometry x="345" y="230" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda アイコン -->
+        <mxCell id="lambda-icon" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" value="AWS Lambda&#xa;ProcessDocFunction&#xa;Python 3.12 / 30s" vertex="1">
+          <mxGeometry x="590" y="230" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- DynamoDB アイコン -->
+        <mxCell id="dynamodb-icon" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" value="Amazon DynamoDB&#xa;UploadHistoryTable&#xa;(PAY_PER_REQUEST)" vertex="1">
+          <mxGeometry x="860" y="230" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- CloudWatch Logs アイコン -->
+        <mxCell id="cw-icon" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;" value="CloudWatch Logs&#xa;Lambda 実行ログ" vertex="1">
+          <mxGeometry x="590" y="450" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- IAM ノート -->
+        <mxCell id="note-iam" parent="1" style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_note;strokeColor=#DD344C;fillColor=#FDEDEC;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;" value="&lt;b&gt;CDK 自動生成リソース (IAM)&lt;/b&gt;&#xa;grantRead() → S3 読み取りポリシー自動付与&#xa;grantWriteData() → DynamoDB 書き込みポリシー自動付与&#xa;Lambda Permission (S3 呼び出し許可) 自動生成" vertex="1">
+          <mxGeometry x="245" y="550" width="290" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- DynamoDB ノート -->
+        <mxCell id="note-db" parent="1" style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_note;strokeColor=#3F8624;fillColor=#EBF5E1;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;" value="&lt;b&gt;記録項目&lt;/b&gt;&#xa;fileKey / bucket / size / uploadedAt" vertex="1">
+          <mxGeometry x="800" y="340" width="220" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- エッジ e1: User → S3 ファイルアップロード -->
+        <mxCell id="e1" edge="1" parent="1" source="user-icon" target="s3-icon" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#232F3E;fontColor=#232F3E;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="① ファイルアップロード">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- エッジ e2: S3 → Lambda S3 Event Notification -->
+        <mxCell id="e2" edge="1" parent="1" source="s3-icon" target="lambda-icon" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#ED7100;fontColor=#ED7100;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="② S3 Event (OBJECT_CREATED)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- エッジ e3: Lambda → S3 GetObject (grantRead) dashed -->
+        <mxCell id="e3" edge="1" parent="1" source="lambda-icon" target="s3-icon" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#3F8624;fontColor=#3F8624;dashed=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="③ GetObject (IAM: grantRead)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="190" />
+              <mxPoint x="375" y="190" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- エッジ e4: Lambda → DynamoDB PutItem -->
+        <mxCell id="e4" edge="1" parent="1" source="lambda-icon" target="dynamodb-icon" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#3F8624;fontColor=#3F8624;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="④ PutItem (IAM: grantWriteData)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- エッジ e5: Lambda → CloudWatch Logs -->
+        <mxCell id="e5" edge="1" parent="1" source="lambda-icon" target="cw-icon" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#E7157B;fontColor=#E7157B;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="⑤ ログ出力">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
