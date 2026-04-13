@@ -1,7 +1,7 @@
 # aws-cdk-multimodal
 
-AWS CDK（TypeScript）で S3 バケットを定義・デプロイする実装例です。
-Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）を習得するためのプロジェクトです。
+AWS CDK（TypeScript）で S3 + Lambda + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
+Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）と高レベル抽象化（L2 Construct / grantRead / grantWriteData）を習得するためのプロジェクトです。
 
 ---
 
@@ -24,32 +24,38 @@ S3 バケット → Lambda（S3 イベントトリガー）→ DynamoDB（アッ
 | カテゴリ | 使用技術 |
 |---|---|
 | IaC | AWS CDK（TypeScript） |
-| リソース | Amazon S3 |
-| 言語 | TypeScript |
+| ストレージ | Amazon S3（暗号化・バージョニング） |
+| コンピュート | AWS Lambda（Python 3.12） |
+| データベース | Amazon DynamoDB（PAY_PER_REQUEST・TTL） |
+| 監視 | Amazon CloudWatch Logs |
+| 言語 | TypeScript / Python |
 | リージョン | ap-northeast-1（東京） |
 
 ---
 
 ## 実装内容
 
-### Phase 3: DynamoDB 追加（`lib/aws-cdk-multimodal-stack.ts`）
+### Phase 1: S3 バケット（`lib/aws-cdk-multimodal-stack.ts`）
 
 ```typescript
-// DynamoDB テーブル定義
-const uploadHistoryTable = new dynamodb.Table(this, 'UploadHistoryTable', {
-  partitionKey: { name: 'fileKey', type: dynamodb.AttributeType.STRING },
-  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // オンデマンド
-  encryption: dynamodb.TableEncryption.AWS_MANAGED,
-  removalPolicy: cdk.RemovalPolicy.DESTROY,
+const docsBucket = new s3.Bucket(this, 'DocsBucket', {
+  blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,  // パブリックアクセス全ブロック
+  encryption: s3.BucketEncryption.S3_MANAGED,          // AES-256 暗号化
+  versioned: true,                                      // バージョニング有効
+  removalPolicy: cdk.RemovalPolicy.DESTROY,            // スタック削除時にバケットも削除
+  autoDeleteObjects: true,                              // 削除前にオブジェクトを自動空に
 });
-
-// DynamoDB 書き込み権限を自動付与（IAM ポリシーを自動生成）
-uploadHistoryTable.grantWriteData(processDocFn);
 ```
 
-**Terraform では個別に必要 → CDK では自動生成：**
-- `aws_dynamodb_table` → `new dynamodb.Table()` 1ブロックで完結
-- `aws_iam_policy`（DynamoDB 書き込み権限）→ `grantWriteData()` 1行
+**Terraform との比較：**
+
+| 設定 | Terraform | CDK |
+|---|---|---|
+| バケット作成 | `aws_s3_bucket` | `new s3.Bucket()` |
+| パブリックアクセスブロック | `aws_s3_bucket_public_access_block` | `blockPublicAccess` オプション 1行 |
+| 暗号化 | `aws_s3_bucket_server_side_encryption_configuration` | `encryption` オプション 1行 |
+| バージョニング | `aws_s3_bucket_versioning` | `versioned: true` 1行 |
+| 削除時オブジェクト削除 | 自分で Lambda + カスタムリソースを書く | `autoDeleteObjects: true` 1行（CDK が自動生成） |
 
 ### Phase 2: Lambda + S3 イベントトリガー（`lib/aws-cdk-multimodal-stack.ts`）
 
@@ -78,27 +84,24 @@ docsBucket.addEventNotification(
 - `aws_s3_bucket_notification`（S3 イベント通知設定）→ 自動
 - `aws_iam_policy`（Lambda の S3 読み取り権限）→ `grantRead()` 1行
 
-### Phase 1: S3 バケット（`lib/aws-cdk-multimodal-stack.ts`）
+### Phase 3: DynamoDB 追加（`lib/aws-cdk-multimodal-stack.ts`）
 
 ```typescript
-const docsBucket = new s3.Bucket(this, 'DocsBucket', {
-  blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,  // パブリックアクセス全ブロック
-  encryption: s3.BucketEncryption.S3_MANAGED,          // AES-256 暗号化
-  versioned: true,                                      // バージョニング有効
-  removalPolicy: cdk.RemovalPolicy.DESTROY,            // スタック削除時にバケットも削除
-  autoDeleteObjects: true,                              // 削除前にオブジェクトを自動空に
+// DynamoDB テーブル定義
+const uploadHistoryTable = new dynamodb.Table(this, 'UploadHistoryTable', {
+  partitionKey: { name: 'fileKey', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // オンデマンド
+  encryption: dynamodb.TableEncryption.AWS_MANAGED,
+  removalPolicy: cdk.RemovalPolicy.DESTROY,
 });
+
+// DynamoDB 書き込み権限を自動付与（IAM ポリシーを自動生成）
+uploadHistoryTable.grantWriteData(processDocFn);
 ```
 
-**Terraform との比較：**
-
-| 設定 | Terraform | CDK |
-|---|---|---|
-| バケット作成 | `aws_s3_bucket` | `new s3.Bucket()` |
-| パブリックアクセスブロック | `aws_s3_bucket_public_access_block` | `blockPublicAccess` オプション 1行 |
-| 暗号化 | `aws_s3_bucket_server_side_encryption_configuration` | `encryption` オプション 1行 |
-| バージョニング | `aws_s3_bucket_versioning` | `versioned: true` 1行 |
-| 削除時オブジェクト削除 | 自分で Lambda + カスタムリソースを書く | `autoDeleteObjects: true` 1行（CDK が自動生成） |
+**Terraform では個別に必要 → CDK では自動生成：**
+- `aws_dynamodb_table` → `new dynamodb.Table()` 1ブロックで完結
+- `aws_iam_policy`（DynamoDB 書き込み権限）→ `grantWriteData()` 1行
 
 ---
 
@@ -148,11 +151,15 @@ aws-vault exec personal-dev-source -- cdk destroy
 #### S3 バケット一覧
 ![s3 bucket](docs/screenshots/03_s3_bucket.png)
 
-### Phase 4: cdk destroy（リソース全削除）
+### Phase 2: Lambda + S3 イベントトリガー
 
-#### CloudFormation スタック一覧（destroy 後）
-`AwsCdkMultimodalStack` が削除され `CDKToolkit` のみ残存。S3・Lambda・DynamoDB がすべて削除された状態。
-![cfn stack destroyed](docs/screenshots/08_cfn_stack_destroyed.png)
+#### Lambda 関数一覧
+`ProcessDocFunction`（Python 3.12）が作成済み。CDK が自動生成した AutoDeleteObjects / BucketNotificationsHandler も確認できる。
+![lambda function list](docs/screenshots/04_lambda_function_list.png)
+
+#### CloudWatch Logs（S3 アップロード検知ログ）
+`test-upload.txt` をアップロード後、Lambda が自動起動し `ファイルアップロード検知: key=test-upload.txt, size=49 bytes` をログ出力。
+![cloudwatch logs](docs/screenshots/05_cloudwatch_logs.png)
 
 ### Phase 3: DynamoDB 追加・Lambda から書き込み
 
@@ -164,15 +171,11 @@ aws-vault exec personal-dev-source -- cdk destroy
 `test-phase3.txt` をアップロード後、Lambda が自動起動し fileKey / bucket / size / uploadedAt を記録。
 ![dynamodb items](docs/screenshots/07_dynamodb_items.png)
 
-### Phase 2: Lambda + S3 イベントトリガー
+### Phase 4: cdk destroy（リソース全削除）
 
-#### Lambda 関数一覧
-`ProcessDocFunction`（Python 3.12）が作成済み。CDK が自動生成した AutoDeleteObjects / BucketNotificationsHandler も確認できる。
-![lambda function list](docs/screenshots/04_lambda_function_list.png)
-
-#### CloudWatch Logs（S3 アップロード検知ログ）
-`test-upload.txt` をアップロード後、Lambda が自動起動し `ファイルアップロード検知: key=test-upload.txt, size=49 bytes` をログ出力。
-![cloudwatch logs](docs/screenshots/05_cloudwatch_logs.png)
+#### CloudFormation スタック一覧（destroy 後）
+`AwsCdkMultimodalStack` が削除され `CDKToolkit` のみ残存。S3・Lambda・DynamoDB がすべて削除された状態。
+![cfn stack destroyed](docs/screenshots/08_cfn_stack_destroyed.png)
 
 ---
 
