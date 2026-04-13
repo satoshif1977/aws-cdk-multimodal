@@ -179,7 +179,7 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ---
 
-## 面談で説明できるポイント
+## 技術的なポイント・工夫
 
 - **CDK = CloudFormation の上位抽象レイヤー**：`cdk synth` で CloudFormation テンプレートに変換される。コード変更の差分は `cdk diff` で確認できる
 - **型補完の恩恵**：TypeScript の型定義により、`s3.BucketEncryption.S3_MANAGED` のように補完が効くため設定ミスを防ぎやすい
