@@ -1,5 +1,9 @@
 # aws-cdk-multimodal
 
+![Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-orange?logo=anthropic)
+![Claude Cowork](https://img.shields.io/badge/Daily%20Use-Claude%20Cowork-blueviolet?logo=anthropic)
+![Claude Skills](https://img.shields.io/badge/Custom-Skills%20Configured-green?logo=anthropic)
+
 AWS CDK（TypeScript）で S3 + Lambda + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
 Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）と高レベル抽象化（L2 Construct / grantRead / grantWriteData）を習得するためのプロジェクトです。
 
@@ -186,3 +190,17 @@ aws-vault exec personal-dev-source -- cdk destroy
 - **autoDeleteObjects の裏側**：`autoDeleteObjects: true` を指定すると CDK が自動で Lambda + Custom Resource を追加生成してくれる。Terraform では自前実装が必要な部分
 - **cdk bootstrap**：CDK が CloudFormation テンプレートや Lambda コードを S3 にアップロードするための専用バケット・IAM ロール等を事前作成するコマンド。アカウント×リージョンごとに1回実行すれば以後不要
 - **Construct の概念**：CDK のリソース定義単位。L1（CloudFormation 直接対応）/ L2（高レベル抽象）/ L3（パターン）の3層構造があり、`s3.Bucket` は L2 Construct
+
+---
+
+## AI 活用について
+
+本プロジェクトは以下の Anthropic ツールを活用して開発しています。
+
+| ツール | 用途 |
+|---|---|
+| **Claude Code** | インフラ設計・コード生成・デバッグ・コードレビュー。コミットまで一貫してサポート |
+| **Claude Cowork** | 技術調査・設計相談・ドキュメント作成を日常的に活用。AI との協働を業務フローに組み込んでいる |
+| **カスタム Skills** | Terraform / Python / AWS に特化した Skills を設定・継続的に更新。自分の技術スタックに最適化したワークフローを構築 |
+
+> AI を「使う」だけでなく、自分の業務・技術スタックに合わせて**設定・運用・改善し続ける**ことを意識しています。
