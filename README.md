@@ -198,15 +198,6 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ---
 
-## 副業・面談でのアピールポイント
-
-- **「CDK と Terraform を使い分けられる」**：同じ S3 + Lambda 構成を両方の IaC ツールで実装しており、記述量・抽象度・トレードオフを具体的に説明できる
-- **「CDK の L2 Construct の恩恵を理解している」**：`grantRead()` / `grantWriteData()` / `addEventNotification()` 1行で、Terraform では複数リソースが必要な IAM ポリシー・S3 通知設定が自動生成されることを実演できる
-- **「CDK Assertions でインフラをテストできる」**：`Template.fromStack()` を使った Jest ユニットテストを実装。CloudFormation テンプレートの構造を検証する IaC テストの経験がある
-- **「CloudFormation の仕組みを理解している」**：`cdk synth` で生成されるテンプレートを読めるため、CDK の裏側で何が起きているかを説明できる
-
----
-
 ## AI 活用について
 
 本プロジェクトは以下の Anthropic ツールを活用して開発しています。
