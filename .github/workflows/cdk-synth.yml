@@ -1,0 +1,40 @@
+name: CDK Build Check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: TypeScript ビルド・CDK 構文検証
+    runs-on: ubuntu-latest
+
+    # Node.js 24 ランタイムを使用（Node.js 20 は 2026-06-02 に deprecated）
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript build（型チェック・コンパイル）
+        run: npm run build
+
+      - name: CDK list（スタック構成確認）
+        # cdk synth はアカウント固有のルックアップが必要なため、
+        # CI では --app でコンパイル済みファイルを指定して構成確認のみ実施
+        run: npx cdk list
+        env:
+          CDK_DEFAULT_ACCOUNT: '123456789012'
+          CDK_DEFAULT_REGION: 'ap-northeast-1'
