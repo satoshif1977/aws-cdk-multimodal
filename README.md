@@ -198,6 +198,15 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ---
 
+## 副業・面談でのアピールポイント
+
+- **「CDK と Terraform を使い分けられる」**：同じ S3 + Lambda 構成を両方の IaC ツールで実装しており、記述量・抽象度・トレードオフを具体的に説明できる
+- **「CDK の L2 Construct の恩恵を理解している」**：`grantRead()` / `grantWriteData()` / `addEventNotification()` 1行で、Terraform では複数リソースが必要な IAM ポリシー・S3 通知設定が自動生成されることを実演できる
+- **「CDK Assertions でインフラをテストできる」**：`Template.fromStack()` を使った Jest ユニットテストを実装。CloudFormation テンプレートの構造を検証する IaC テストの経験がある
+- **「CloudFormation の仕組みを理解している」**：`cdk synth` で生成されるテンプレートを読めるため、CDK の裏側で何が起きているかを説明できる
+
+---
+
 ## AI 活用について
 
 本プロジェクトは以下の Anthropic ツールを活用して開発しています。
@@ -209,3 +218,11 @@ aws-vault exec personal-dev-source -- cdk destroy
 | **カスタム Skills** | Terraform / Python / AWS に特化した Skills を設定・継続的に更新。自分の技術スタックに最適化したワークフローを構築 |
 
 > AI を「使う」だけでなく、自分の業務・技術スタックに合わせて**設定・運用・改善し続ける**ことを意識しています。
+
+---
+
+## 関連リポジトリ
+
+- [aws-cdk-3tier-app](https://github.com/satoshif1977/aws-cdk-3tier-app) - CDK で VPC / ALB / EC2 / RDS の 3 層構成を実装
+- [aws-eventbridge-lambda](https://github.com/satoshif1977/aws-eventbridge-lambda) - EventBridge + Lambda のスケジュール実行・S3 イベント駆動の 2 パターン（Terraform）
+- [aws-bedrock-agent](https://github.com/satoshif1977/aws-bedrock-agent) - Bedrock Agent + Lambda FAQ ボット（Terraform）
