@@ -14,6 +14,12 @@ Terraform との比較を意識しながら、CDK の基本的な使い方（syn
 
 ---
 
+## デモ
+
+![Demo](docs/demo/demo.gif)
+
+---
+
 ## アーキテクチャ
 
 ![アーキテクチャ図](docs/cdk-multimodal-architecture.drawio.png)
