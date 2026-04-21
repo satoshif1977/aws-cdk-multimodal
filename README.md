@@ -9,7 +9,8 @@
 ![Claude Cowork](https://img.shields.io/badge/Daily%20Use-Claude%20Cowork-blueviolet?logo=anthropic)
 ![Claude Skills](https://img.shields.io/badge/Custom-Skills%20Configured-green?logo=anthropic)
 
-AWS CDK（TypeScript）で S3 + Lambda + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
+AWS CDK（TypeScript）で S3 + Lambda + Amazon Bedrock + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
+S3 にアップロードされた画像を Lambda が検知し、Amazon Bedrock（Claude 3 Haiku）でマルチモーダル分析して結果を DynamoDB に記録します。
 Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）と高レベル抽象化（L2 Construct / grantRead / grantWriteData）を習得するためのプロジェクトです。
 
 ---
@@ -29,7 +30,9 @@ CDK TypeScript コード
   ↓ cdk synth
 CloudFormation テンプレート（自動生成）
   ↓ cdk deploy
-S3 バケット → Lambda（S3 イベントトリガー）→ DynamoDB（アップロード履歴記録）
+S3 バケット → Lambda（S3 イベントトリガー）
+  → 画像ファイル: Bedrock Claude 3 Haiku でマルチモーダル分析 → DynamoDB（分析結果記録）
+  → 非画像ファイル: DynamoDB（メタデータのみ記録）
 ```
 
 ---
@@ -40,8 +43,9 @@ S3 バケット → Lambda（S3 イベントトリガー）→ DynamoDB（アッ
 |---|---|
 | IaC | AWS CDK（TypeScript） |
 | ストレージ | Amazon S3（暗号化・バージョニング） |
-| コンピュート | AWS Lambda（Python 3.12） |
-| データベース | Amazon DynamoDB（PAY_PER_REQUEST・TTL） |
+| コンピュート | AWS Lambda（Python 3.12 / タイムアウト 60s） |
+| AI / 生成 AI | Amazon Bedrock / Claude 3 Haiku（マルチモーダル画像分析） |
+| データベース | Amazon DynamoDB（PAY_PER_REQUEST） |
 | 監視 | Amazon CloudWatch Logs |
 | 言語 | TypeScript / Python |
 | リージョン | ap-northeast-1（東京） |
@@ -118,6 +122,102 @@ uploadHistoryTable.grantWriteData(processDocFn);
 - `aws_dynamodb_table` → `new dynamodb.Table()` 1ブロックで完結
 - `aws_iam_policy`（DynamoDB 書き込み権限）→ `grantWriteData()` 1行
 
+### Phase 4: CDK テスト（`test/aws-cdk-multimodal.test.ts`）
+
+CDK には CloudFormation テンプレートをアサートするテストフレームワーク（`aws-cdk-lib/assertions`）が組み込まれています。
+
+```typescript
+import { Template, Match } from 'aws-cdk-lib/assertions';
+
+const template = Template.fromStack(stack);
+
+// S3 のパブリックアクセスが全ブロックされているか
+template.hasResourceProperties('AWS::S3::Bucket', {
+  PublicAccessBlockConfiguration: {
+    BlockPublicAcls: true,
+    BlockPublicPolicy: true,
+  },
+});
+
+// Lambda のタイムアウトが 60 秒か
+template.hasResourceProperties('AWS::Lambda::Function', {
+  Timeout: 60,
+});
+
+// Bedrock InvokeModel 権限が付与されているか
+template.hasResourceProperties('AWS::IAM::Policy', {
+  PolicyDocument: {
+    Statement: Match.arrayWith([
+      Match.objectLike({
+        Action: 'bedrock:InvokeModel',
+        Effect: 'Allow',
+      }),
+    ]),
+  },
+});
+```
+
+**Terraform との比較：**
+
+| テスト手法 | Terraform | CDK |
+|---|---|---|
+| 静的検証 | `terraform validate` / `terraform plan` | `cdk synth` |
+| ユニットテスト | Terratest（Go）/ pytest（python） | `aws-cdk-lib/assertions`（組み込み） |
+| IaC コードと同言語 | No（Go/Python が必要） | Yes（TypeScript で完結） |
+
+### Phase 5: Bedrock マルチモーダル分析（`lambda_src/process_doc/lambda_function.py`）
+
+S3 にアップロードされた画像を Bedrock Claude 3 Haiku でマルチモーダル分析します。
+
+```python
+def analyze_image(image_base64: str, media_type: str) -> str:
+    """Bedrock Claude にマルチモーダルリクエストを送り、画像分析テキストを返す。"""
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 1024,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,  # "image/png" etc.
+                        "data": image_base64,
+                    },
+                },
+                {"type": "text", "text": "この画像を詳しく分析してください..."},
+            ],
+        }],
+    }
+    response = bedrock_client.invoke_model(modelId=MODEL_ID, body=json.dumps(body))
+    result = json.loads(response["body"].read())  # ※ Bedrock は小文字 "body"
+    return result["content"][0]["text"]
+```
+
+**CDK スタック側の追加設定（`lib/aws-cdk-multimodal-stack.ts`）：**
+
+```typescript
+// Bedrock InvokeModel 権限（L2 Construct の grant 系メソッドは存在しないため手動付与）
+processDocFn.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['bedrock:InvokeModel'],
+  resources: [
+    `arn:aws:bedrock:${this.region}::foundation-model/${MODEL_ID}`,
+  ],
+}));
+```
+
+**対応画像フォーマット：** jpg / jpeg / png / gif / webp
+**非画像ファイル：** メタデータ（fileKey / bucket / size / uploadedAt）のみ DynamoDB に記録
+
+| DynamoDB 属性 | 画像ファイル | 非画像ファイル |
+|---|---|---|
+| fileKey | ✅ | ✅ |
+| bucket / size / uploadedAt | ✅ | ✅ |
+| fileType | `"image"` | `"document"` |
+| modelId | Claude 3 Haiku ARN | なし |
+| analysisResult | Claude の分析テキスト（日本語） | なし |
+
 ---
 
 ## デプロイ手順
@@ -154,6 +254,8 @@ aws-vault exec personal-dev-source -- cdk destroy
 ---
 
 ## スクリーンショット
+
+> Phase 1〜4 は S3 / Lambda / DynamoDB の基本構成、Phase 5 で Bedrock マルチモーダル分析を追加した状態でのデプロイ確認です。
 
 ### Phase 1: S3 バケット定義・デプロイ
 
@@ -201,6 +303,10 @@ aws-vault exec personal-dev-source -- cdk destroy
 - **autoDeleteObjects の裏側**：`autoDeleteObjects: true` を指定すると CDK が自動で Lambda + Custom Resource を追加生成してくれる。Terraform では自前実装が必要な部分
 - **cdk bootstrap**：CDK が CloudFormation テンプレートや Lambda コードを S3 にアップロードするための専用バケット・IAM ロール等を事前作成するコマンド。アカウント×リージョンごとに1回実行すれば以後不要
 - **Construct の概念**：CDK のリソース定義単位。L1（CloudFormation 直接対応）/ L2（高レベル抽象）/ L3（パターン）の3層構造があり、`s3.Bucket` は L2 Construct
+- **Bedrock マルチモーダル API の注意点**：boto3 の `bedrock-runtime` クライアントは `invoke_model()` のレスポンスキーが小文字の `"body"`（S3 の `"Body"` とは異なる）。`json.loads(response["body"].read())` と読む必要がある
+- **Bedrock の IAM 権限は手動付与が必要**：`grantRead()` / `grantWriteData()` のような CDK 組み込み grant メソッドは Bedrock には存在しないため、`addToRolePolicy()` で `bedrock:InvokeModel` を明示的に付与する
+- **Lambda タイムアウトを 60s に延長**：Bedrock の画像分析（大きい画像・長文回答）では 30s では不足することがある。Bedrock 呼び出しを含む Lambda は余裕を持ったタイムアウト設定が必要
+- **CDK テストフレームワーク**：`aws-cdk-lib/assertions` を使うと CloudFormation テンプレートをユニットテストできる。`npx jest` で 14 テスト全件 PASS を確認済み
 
 ---
 
