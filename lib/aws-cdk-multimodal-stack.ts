@@ -3,7 +3,10 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
+
+const MODEL_ID = 'anthropic.claude-3-haiku-20240307-v1:0';
 
 export class AwsCdkMultimodalStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -18,34 +21,44 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
-    // ── DynamoDB テーブル（アップロード履歴） ──────────────────
-    // Terraform の aws_dynamodb_table 相当
+    // ── DynamoDB テーブル（アップロード履歴 + 分析結果） ────────
     // パーティションキー: fileKey（S3 オブジェクトキー）
+    // 追加属性: analysisResult（Bedrock 分析テキスト）, fileType, modelId
     const uploadHistoryTable = new dynamodb.Table(this, 'UploadHistoryTable', {
       partitionKey: { name: 'fileKey', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // オンデマンド（学習用・コスト最適）
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,  // AWS マネージド暗号化
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // ── Lambda（S3 アップロード検知 → DynamoDB 記録） ─────────
+    // ── Lambda（S3 アップロード検知 → Bedrock 分析 → DynamoDB 記録） ──
+    // 画像ファイル（jpg/jpeg/png/gif/webp）は Bedrock Claude で分析
+    // 非画像ファイルはメタデータのみ記録（従来動作）
     const processDocFn = new lambda.Function(this, 'ProcessDocFunction', {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'lambda_function.lambda_handler',
       code: lambda.Code.fromAsset('lambda_src/process_doc'),
       environment: {
         BUCKET_NAME: docsBucket.bucketName,
-        TABLE_NAME: uploadHistoryTable.tableName, // 環境変数でテーブル名を渡す
+        TABLE_NAME: uploadHistoryTable.tableName,
+        MODEL_ID: MODEL_ID,
       },
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(60), // Bedrock 呼び出しを考慮して 60 秒
     });
 
-    // S3 読み取り権限を付与
+    // S3 読み取り権限（画像取得のため）
     docsBucket.grantRead(processDocFn);
 
-    // DynamoDB 書き込み権限を付与（IAM ポリシーを自動生成）
-    // Terraform では aws_iam_policy + aws_iam_role_policy_attachment が必要
+    // DynamoDB 書き込み権限
     uploadHistoryTable.grantWriteData(processDocFn);
+
+    // Bedrock InvokeModel 権限（Claude 3 Haiku のみ）
+    processDocFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      resources: [
+        `arn:aws:bedrock:${this.region}::foundation-model/${MODEL_ID}`,
+      ],
+    }));
 
     // S3 ObjectCreated イベントで Lambda を起動
     docsBucket.addEventNotification(
@@ -66,7 +79,7 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'TableName', {
       value: uploadHistoryTable.tableName,
-      description: 'アップロード履歴 DynamoDB テーブル名',
+      description: 'アップロード履歴 + 分析結果 DynamoDB テーブル名',
     });
   }
 }

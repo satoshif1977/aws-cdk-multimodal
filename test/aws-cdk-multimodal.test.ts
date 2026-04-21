@@ -71,14 +71,40 @@ describe('Lambda', () => {
     });
   });
 
-  test('タイムアウトが 30 秒である', () => {
+  test('タイムアウトが 60 秒である', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
-      Timeout: 30,
+      Timeout: 60,
+    });
+  });
+
+  test('MODEL_ID 環境変数が設定されている', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({
+          MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+        }),
+      },
     });
   });
 
   test('S3 ObjectCreated イベント通知が設定される', () => {
     template.resourceCountIs('Custom::S3BucketNotifications', 1);
+  });
+});
+
+// ── Bedrock テスト ────────────────────────────────────────
+describe('Bedrock', () => {
+  test('Lambda に bedrock:InvokeModel 権限が付与されている', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'bedrock:InvokeModel',
+            Effect: 'Allow',
+          }),
+        ]),
+      },
+    });
   });
 });
 
