@@ -310,6 +310,38 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ---
 
+## CI / 自動検証
+
+GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテストを自動実行しています。
+
+| ジョブ | 内容 |
+|---|---|
+| TypeScript ビルド | 型チェック・コンパイルエラーの検出（`npm run build`） |
+| CDK list | スタック構成の確認（アカウント固有ルックアップなしで実行） |
+| ユニットテスト | CDK Assertions で 14 項目をローカル検証（`npx jest`） |
+
+> CI は `CDK_DEFAULT_ACCOUNT: '123456789012'`（ダミー値）で動作。`cdk synth` はアカウント固有のルックアップが必要なため CI では `cdk list` で代替。
+
+---
+
+## 学習で気づいたこと・躓いたポイント
+
+### CDK の挙動
+
+- **`autoDeleteObjects: true` で CDK が勝手にリソースを追加する**: このオプションを指定すると CDK が自動で「オブジェクト自動削除用 Lambda + Custom Resource」を裏で追加生成する。`cdk synth` の出力を見ると書いていないリソースが増えていて最初は驚く。CDK の「便利さの裏側」を体感できた。
+- **`cdk bootstrap` を忘れると謎のエラーが出る**: CDK が内部で使う S3 バケットや IAM ロールを事前に作成するコマンド。初回に必ず必要だが、忘れると `ECRRepositoryNotFound` など直感しにくいエラーが出る。アカウント×リージョンごとに 1 回だけ実行。
+
+### Bedrock × CDK
+
+- **Bedrock には CDK の `grant` 系メソッドがない**: `docsBucket.grantRead(fn)` のような便利メソッドが Bedrock には存在しない。`fn.addToRolePolicy(new iam.PolicyStatement({...}))` で手動付与が必要。S3・DynamoDB と同じ感覚でいると詰まる。
+- **`response["body"].read()` は小文字**: `bedrock-runtime` の `invoke_model()` レスポンスのキーは小文字の `"body"`。S3 の `response["Body"].read()`（大文字）と逆なので混同して `KeyError` が出やすい。
+
+### TypeScript
+
+- **型補完のおかげでミスが格段に減る**: `s3.BucketEncryption.S3_MANAGED` など設定値を補完で選べるため、Terraform の HCL で文字列をタイポするミスが起きにくい。IDE（VSCode）との相性が CDK の大きな強み。
+
+---
+
 ## AI 活用について
 
 本プロジェクトは以下の Anthropic ツールを活用して開発しています。
