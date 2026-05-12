@@ -310,6 +310,48 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ---
 
+## トラブルシューティング
+
+| 症状 | 原因 | 対処法 |
+|---|---|---|
+| `cdk deploy` で `ECRRepositoryNotFound` | `cdk bootstrap` 未実行 | `aws-vault exec <profile> -- cdk bootstrap` を先に実行 |
+| S3 アップロード後に Lambda が起動しない | `autoDeleteObjects` の Custom Resource が S3 通知を上書き | `cdk deploy` を再実行すると解決することが多い |
+| Bedrock で `AccessDeniedException` | Lambda IAM ロールに `bedrock:InvokeModel` がない | `cdk synth` で生成した CloudFormation テンプレートの IAM ポリシーを確認 |
+| DynamoDB に分析結果が書き込まれない | 画像フォーマットが非対応 | 対応フォーマット（jpg/jpeg/png/gif/webp）のファイルをアップロードする |
+| Lambda タイムアウト | 大きな画像の Bedrock 処理が 60 秒を超えた | ファイルサイズを 5MB 以下に縮小して再試行 |
+
+---
+
+## ローカル開発・テスト方法
+
+### ユニットテスト（デプロイ不要・約 5 秒）
+
+```bash
+npm install
+npx jest
+# CDK Assertions で 14 項目を検証
+```
+
+### CDK 構成確認
+
+```bash
+aws-vault exec personal-dev-source -- npx cdk synth
+# CloudFormation テンプレートを生成して確認
+```
+
+### Lambda コードのローカル確認
+
+```bash
+cd lambda_src/process_doc
+python -c "
+# 画像フォーマット判定ロジックの確認
+ext = 'test.png'.split('.')[-1].lower()
+print('is image:', ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'])
+"
+```
+
+---
+
 ## CI / 自動検証
 
 GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテストを自動実行しています。
