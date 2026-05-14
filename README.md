@@ -403,3 +403,7 @@ GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテス�
 - [aws-cdk-3tier-app](https://github.com/satoshif1977/aws-cdk-3tier-app) - CDK で VPC / ALB / EC2 / RDS の 3 層構成を実装
 - [aws-eventbridge-lambda](https://github.com/satoshif1977/aws-eventbridge-lambda) - EventBridge + Lambda のスケジュール実行・S3 イベント駆動の 2 パターン（Terraform）
 - [aws-bedrock-agent](https://github.com/satoshif1977/aws-bedrock-agent) - Bedrock Agent + Lambda FAQ ボット（Terraform）
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and security policies.
