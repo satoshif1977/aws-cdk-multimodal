@@ -210,6 +210,21 @@ processDocFn.addToRolePolicy(new iam.PolicyStatement({
 **対応画像フォーマット：** jpg / jpeg / png / gif / webp
 **非画像ファイル：** メタデータ（fileKey / bucket / size / uploadedAt）のみ DynamoDB に記録
 
+### サポートフォーマット詳細
+
+| 拡張子 | MIME タイプ | 処理 | 備考 |
+|---|---|---|---|
+| `.jpg` / `.jpeg` | `image/jpeg` | Bedrock マルチモーダル分析 | 最も一般的な写真フォーマット |
+| `.png` | `image/png` | Bedrock マルチモーダル分析 | スクリーンショット・図表に最適 |
+| `.gif` | `image/gif` | Bedrock マルチモーダル分析 | 静止画として分析（アニメーション非対応） |
+| `.webp` | `image/webp` | Bedrock マルチモーダル分析 | Web 最適化フォーマット |
+| 上記以外 | — | メタデータのみ DynamoDB 記録 | PDF・テキスト・動画等 |
+
+**制限事項:**
+- 最大ファイルサイズ: 5 MB 以下推奨（Bedrock API の base64 エンコード制限）
+- Lambda タイムアウト: 60 秒（大きな画像の分析で超過する場合はファイルを縮小）
+- Bedrock の画像サイズ上限: 短辺 200px 以上・長辺 4096px 以下推奨
+
 | DynamoDB 属性 | 画像ファイル | 非画像ファイル |
 |---|---|---|
 | fileKey | ✅ | ✅ |
