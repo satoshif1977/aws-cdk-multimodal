@@ -1,0 +1,67 @@
+name: CDK Diff（PR コメント）
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  cdk-diff:
+    name: CDK Synth → PR コメント投稿
+    runs-on: ubuntu-latest
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      CDK_DEFAULT_ACCOUNT: '123456789012'
+      CDK_DEFAULT_REGION: 'ap-northeast-1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 依存パッケージのインストール
+        run: npm ci
+
+      - name: TypeScript ビルド
+        run: npm run build
+
+      - name: CDK synth（CloudFormation テンプレート生成）
+        run: npx cdk synth --quiet > cdk-synth-output.txt 2>&1
+        continue-on-error: true
+
+      - name: PR にコメント投稿
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.readFileSync('cdk-synth-output.txt', 'utf8');
+            const MAX = 50000;
+            const content = raw.length > MAX
+              ? raw.substring(0, MAX) + '\n\n> ⚠️ 出力が長すぎるため省略しました'
+              : raw;
+
+            const body = [
+              '## CDK Synth 結果',
+              '',
+              '<details>',
+              '<summary>CloudFormation テンプレート（クリックで展開）</summary>',
+              '',
+              '```yaml',
+              content,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
