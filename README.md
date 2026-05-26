@@ -10,7 +10,7 @@
 ![Claude Skills](https://img.shields.io/badge/Custom-Skills%20Configured-green?logo=anthropic)
 
 AWS CDK（TypeScript）で S3 + Lambda + Amazon Bedrock + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
-S3 にアップロードされた画像を Lambda が検知し、Amazon Bedrock（Claude 3 Haiku）でマルチモーダル分析して結果を DynamoDB に記録します。
+S3 にアップロードされた画像を Lambda が検知し、Amazon Bedrock（Claude 3.5 Haiku）でマルチモーダル分析して結果を DynamoDB に記録します。
 Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）と高レベル抽象化（L2 Construct / grantRead / grantWriteData）を習得するためのプロジェクトです。
 
 ---
@@ -31,7 +31,7 @@ CDK TypeScript コード
 CloudFormation テンプレート（自動生成）
   ↓ cdk deploy
 S3 バケット → Lambda（S3 イベントトリガー）
-  → 画像ファイル: Bedrock Claude 3 Haiku でマルチモーダル分析 → DynamoDB（分析結果記録）
+  → 画像ファイル: Bedrock Claude 3.5 Haiku でマルチモーダル分析 → DynamoDB（分析結果記録）
   → 非画像ファイル: DynamoDB（メタデータのみ記録）
 ```
 
@@ -44,7 +44,7 @@ S3 バケット → Lambda（S3 イベントトリガー）
 | IaC | AWS CDK（TypeScript） |
 | ストレージ | Amazon S3（暗号化・バージョニング） |
 | コンピュート | AWS Lambda（Python 3.12 / タイムアウト 60s） |
-| AI / 生成 AI | Amazon Bedrock / Claude 3 Haiku（マルチモーダル画像分析） |
+| AI / 生成 AI | Amazon Bedrock / Claude 3.5 Haiku（マルチモーダル画像分析） |
 | データベース | Amazon DynamoDB（PAY_PER_REQUEST） |
 | 監視 | Amazon CloudWatch Logs |
 | 言語 | TypeScript / Python |
@@ -167,7 +167,7 @@ template.hasResourceProperties('AWS::IAM::Policy', {
 
 ### Phase 5: Bedrock マルチモーダル分析（`lambda_src/process_doc/lambda_function.py`）
 
-S3 にアップロードされた画像を Bedrock Claude 3 Haiku でマルチモーダル分析します。
+S3 にアップロードされた画像を Bedrock Claude 3.5 Haiku でマルチモーダル分析します。
 
 ```python
 def analyze_image(image_base64: str, media_type: str) -> str:
@@ -230,7 +230,7 @@ processDocFn.addToRolePolicy(new iam.PolicyStatement({
 | fileKey | ✅ | ✅ |
 | bucket / size / uploadedAt | ✅ | ✅ |
 | fileType | `"image"` | `"document"` |
-| modelId | Claude 3 Haiku ARN | なし |
+| modelId | Claude 3.5 Haiku ARN | なし |
 | analysisResult | Claude の分析テキスト（日本語） | なし |
 
 ---
