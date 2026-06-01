@@ -17,7 +17,7 @@
           <mxGeometry height="60" width="60" x="55" y="339" as="geometry" />
         </mxCell>
         <mxCell id="aws-cloud" parent="1" style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#AAB7B8;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#AAB7B8;dashed=0;" value="AWS Cloud (ap-northeast-1)" vertex="1">
-          <mxGeometry height="660" width="1125" x="185" y="88" as="geometry" />
+          <mxGeometry height="660" width="1055" x="185" y="88" as="geometry" />
         </mxCell>
         <mxCell id="note-cdk" parent="1" style="sketch=0;outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_note;strokeColor=#AAB7B8;fillColor=#F2F3F4;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;" value="AWS CDK (TypeScript)&#xa;cdk synth → CloudFormation 自動生成&#xa;IAM / S3 通知 / Lambda Permission 自動作成" vertex="1">
           <mxGeometry height="63" width="275" x="230" y="118" as="geometry" />
@@ -26,7 +26,7 @@
           <mxGeometry height="61" width="235" x="686.5" y="120" as="geometry" />
         </mxCell>
         <mxCell id="s3-icon" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" value="Amazon S3&#xa;DocsBucket&#xa;(暗号化・バージョニング)" vertex="1">
-          <mxGeometry height="60" width="60" x="418" y="339" as="geometry" />
+          <mxGeometry height="60" width="60" x="382" y="339" as="geometry" />
         </mxCell>
         <mxCell id="validator-icon" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" value="AWS Lambda&#xa;ValidatorFunction&#xa;TypeScript / Node.js 22.x" vertex="1">
           <mxGeometry height="60" width="60" x="618" y="160" as="geometry" />
@@ -55,13 +55,13 @@
         <mxCell id="e2" edge="1" parent="1" source="s3-icon" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#ED7100;fontColor=#ED7100;rounded=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" target="validator-icon" value="② ObjectCreated">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e3" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#ED7100;fontColor=#ED7100;rounded=1;" value="② ObjectCreated">
+        <mxCell id="e3" edge="1" parent="1" source="s3-icon" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#ED7100;fontColor=#ED7100;rounded=1;exitX=0.973;exitY=0.343;exitDx=0;exitDy=0;exitPerimeter=0;" value="② ObjectCreated">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="478" y="360" as="sourcePoint" />
             <mxPoint x="618" y="360" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="e4" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#7AA116;fontColor=#7AA116;dashed=1;rounded=1;" value="③ GetObject (grantRead)">
+        <mxCell id="e4" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeWidth=2;fontSize=10;fontStyle=1;strokeColor=#7AA116;fontColor=#7AA116;dashed=1;rounded=1;entryX=1;entryY=0.75;entryDx=0;entryDy=0;entryPerimeter=0;" target="s3-icon" value="③ GetObject (grantRead)">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="618" y="382" as="sourcePoint" />
             <mxPoint x="478" y="382" as="targetPoint" />
