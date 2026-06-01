@@ -61,6 +61,12 @@ describe('DynamoDB', () => {
       SSESpecification: { SSEEnabled: true },
     });
   });
+
+  test('DynamoDB Stream が NEW_IMAGE で有効化されている', () => {
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      StreamSpecification: { StreamViewType: 'NEW_IMAGE' },
+    });
+  });
 });
 
 // ── Lambda テスト ─────────────────────────────────────────
@@ -90,6 +96,40 @@ describe('Lambda', () => {
   test('S3 ObjectCreated イベント通知が設定される', () => {
     template.resourceCountIs('Custom::S3BucketNotifications', 1);
   });
+
+  test('TypeScript validator Lambda が Node.js 22.x で作成される', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'nodejs22.x',
+    });
+  });
+
+  test('Go notifier Lambda が provided.al2023 で作成される', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'provided.al2023',
+      Handler: 'bootstrap',
+    });
+  });
+
+  test('Go notifier Lambda に CW_NAMESPACE 環境変数が設定されている', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({
+          CW_NAMESPACE: 'MultimodalApp',
+        }),
+      },
+    });
+  });
+
+  test('Lambda 関数が合計 3 つ作成される（Python / TypeScript / Go）', () => {
+    // CDK custom resource Lambda を除いた関数数チェック
+    const functions = template.findResources('AWS::Lambda::Function', {
+      Properties: Match.objectLike({ Runtime: Match.anyValue() }),
+    });
+    const runtimes = Object.values(functions).map((f: any) => f.Properties?.Runtime);
+    expect(runtimes).toContain('python3.12');
+    expect(runtimes).toContain('nodejs22.x');
+    expect(runtimes).toContain('provided.al2023');
+  });
 });
 
 // ── Bedrock テスト ────────────────────────────────────────
@@ -108,6 +148,22 @@ describe('Bedrock', () => {
   });
 });
 
+// ── IAM テスト ───────────────────────────────────────────
+describe('IAM', () => {
+  test('cloudwatch:PutMetricData 権限が付与されている', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'cloudwatch:PutMetricData',
+            Effect: 'Allow',
+          }),
+        ]),
+      },
+    });
+  });
+});
+
 // ── Outputs テスト ────────────────────────────────────────
 describe('Outputs', () => {
   test('BucketName が出力される', () => {
@@ -116,6 +172,14 @@ describe('Outputs', () => {
 
   test('LambdaFunctionName が出力される', () => {
     template.hasOutput('LambdaFunctionName', {});
+  });
+
+  test('ValidatorFunctionName が出力される', () => {
+    template.hasOutput('ValidatorFunctionName', {});
+  });
+
+  test('NotifierFunctionName が出力される', () => {
+    template.hasOutput('NotifierFunctionName', {});
   });
 
   test('TableName が出力される', () => {
