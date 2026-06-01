@@ -5,13 +5,15 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
+![Go](https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white)
 ![Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-orange?logo=anthropic)
 ![Claude Cowork](https://img.shields.io/badge/Daily%20Use-Claude%20Cowork-blueviolet?logo=anthropic)
 ![Claude Skills](https://img.shields.io/badge/Custom-Skills%20Configured-green?logo=anthropic)
 
-AWS CDK（TypeScript）で S3 + Lambda + Amazon Bedrock + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
+AWS CDK（TypeScript）で S3 + 3言語 Lambda + Amazon Bedrock + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
 S3 にアップロードされた画像を Lambda が検知し、Amazon Bedrock（Claude 3.5 Haiku）でマルチモーダル分析して結果を DynamoDB に記録します。
-Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）と高レベル抽象化（L2 Construct / grantRead / grantWriteData）を習得するためのプロジェクトです。
+**Python / TypeScript / Go** の 3言語 Lambda を並置実装しており、DynamoDB Stream を使ったリアルタイム通知（CloudWatch カスタムメトリクス）も含みます。
+Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）と高レベル抽象化（L2 Construct / grantRead / grantWriteData / NodejsFunction / DynamoEventSource）を習得するためのプロジェクトです。
 
 ---
 
@@ -30,9 +32,18 @@ CDK TypeScript コード
   ↓ cdk synth
 CloudFormation テンプレート（自動生成）
   ↓ cdk deploy
-S3 バケット → Lambda（S3 イベントトリガー）
-  → 画像ファイル: Bedrock Claude 3.5 Haiku でマルチモーダル分析 → DynamoDB（分析結果記録）
-  → 非画像ファイル: DynamoDB（メタデータのみ記録）
+
+S3 バケット ─ ObjectCreated ──→ ValidatorFunction（TypeScript / Node.js 22.x）
+                                  └─ 拡張子チェック（jpg/png/gif/webp のみ）
+                                  └─ サイズチェック（10 MB 上限）
+             ─ ObjectCreated ──→ ProcessDocFunction（Python 3.12 / 60s）
+                                  ├─ 画像ファイル: Bedrock Claude 3.5 Haiku でマルチモーダル分析
+                                  │    → DynamoDB（分析結果 + メタデータ記録）
+                                  └─ 非画像ファイル: DynamoDB（メタデータのみ記録）
+
+DynamoDB Stream（NEW_IMAGE / INSERT）
+  └──→ NotifierFunction（Go / provided.al2023）
+         └─ CloudWatch Metrics: DocumentAnalyzed（カスタムメトリクス）
 ```
 
 ---
@@ -43,11 +54,11 @@ S3 バケット → Lambda（S3 イベントトリガー）
 |---|---|
 | IaC | AWS CDK（TypeScript） |
 | ストレージ | Amazon S3（暗号化・バージョニング） |
-| コンピュート | AWS Lambda（Python 3.12 / タイムアウト 60s） |
+| コンピュート | AWS Lambda（Python 3.12 / Node.js 22.x / provided.al2023）|
 | AI / 生成 AI | Amazon Bedrock / Claude 3.5 Haiku（マルチモーダル画像分析） |
-| データベース | Amazon DynamoDB（PAY_PER_REQUEST） |
-| 監視 | Amazon CloudWatch Logs |
-| 言語 | TypeScript / Python |
+| データベース | Amazon DynamoDB（PAY_PER_REQUEST・Stream NEW_IMAGE） |
+| 監視 | Amazon CloudWatch Logs / CloudWatch カスタムメトリクス |
+| 言語 | TypeScript / Python / Go |
 | リージョン | ap-northeast-1（東京） |
 
 ---
@@ -233,6 +244,104 @@ processDocFn.addToRolePolicy(new iam.PolicyStatement({
 | modelId | Claude 3.5 Haiku ARN | なし |
 | analysisResult | Claude の分析テキスト（日本語） | なし |
 
+### Phase 6: TypeScript Lambda バリデーター（`lambda_src/validator/index.ts`）
+
+S3 ObjectCreated イベントを受け取り、**拡張子チェック・ファイルサイズ上限チェック**を行う TypeScript Lambda です。
+`NodejsFunction` + esbuild で CDK がバンドリングします。
+
+```typescript
+const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export function validateRecord(record: S3EventRecord): ValidationResult {
+  const fileKey = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
+  const sizeBytes = record.s3.object.size;
+  const ext = fileKey.slice(fileKey.lastIndexOf('.')).toLowerCase();
+
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    return { valid: false, fileKey, reason: `unsupported extension: ${ext}` };
+  }
+  if (sizeBytes > MAX_SIZE_BYTES) {
+    return { valid: false, fileKey, reason: `size ${sizeBytes} exceeds limit ${MAX_SIZE_BYTES}` };
+  }
+  return { valid: true, fileKey };
+}
+```
+
+**CDK スタック側の定義（`lib/aws-cdk-multimodal-stack.ts`）：**
+
+```typescript
+const validatorFn = new lambdaNodejs.NodejsFunction(this, 'ValidatorFunction', {
+  entry: 'lambda_src/validator/index.ts',
+  handler: 'handler',
+  runtime: lambda.Runtime.NODEJS_22_X,
+  bundling: { minify: true, sourceMap: false },
+});
+docsBucket.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(validatorFn));
+```
+
+- `NodejsFunction` は esbuild でバンドリング・トランスパイルを自動化（`tsc` 不要）
+- 純粋関数 `validateRecord()` を export することで Jest ユニットテストが書きやすい（7 テスト）
+
+### Phase 7: Go Lambda ノティファイアー（`lambda_src/notifier/main.go`）
+
+DynamoDB Stream（INSERT イベント）を受け取り、**CloudWatch カスタムメトリクス `DocumentAnalyzed`** を送信する Go Lambda です。
+
+```go
+func ProcessRecords(ctx context.Context, event events.DynamoDBEvent) (int, error) {
+    var published int
+    for _, record := range event.Records {
+        if record.EventName != "INSERT" { continue }
+        _, err := cwClient.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
+            Namespace: aws.String(namespace()),
+            MetricData: []types.MetricDatum{{
+                MetricName: aws.String("DocumentAnalyzed"),
+                Value:      aws.Float64(1),
+                Unit:       types.StandardUnitCount,
+            }},
+        })
+        if err != nil { return published, err }
+        published++
+    }
+    return published, nil
+}
+```
+
+**CDK スタック側の定義（`lib/aws-cdk-multimodal-stack.ts`）：**
+
+```typescript
+const notifierFn = new lambda.Function(this, 'NotifierFunction', {
+  runtime: lambda.Runtime.PROVIDED_AL2023,
+  handler: 'bootstrap',
+  code: lambda.Code.fromAsset('lambda_src/notifier', {
+    bundling: {
+      image: lambda.Runtime.PROVIDED_AL2023.bundlingImage,
+      local: {
+        tryBundle(outputDir: string): boolean {
+          // Windows: PowerShell でクロスコンパイル
+          execSync(
+            `powershell -Command "$env:GOARCH='amd64'; $env:GOOS='linux'; ` +
+            `Push-Location '${srcDir}'; go build -o '${outputDir}/bootstrap' .; Pop-Location"`,
+          );
+          return true;
+        },
+      },
+    },
+  }),
+});
+uploadHistoryTable.grantStreamRead(notifierFn);
+notifierFn.addEventSource(new lambdaEventSources.DynamoEventSource(uploadHistoryTable, {
+  startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+}));
+notifierFn.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['cloudwatch:PutMetricData'],
+  resources: ['*'],
+}));
+```
+
+- Windows 環境では `GOARCH=amd64 GOOS=linux` が cmd/bash で通らないため PowerShell `$env:` 構文で対応
+- DynamoDB Stream は `StreamViewType.NEW_IMAGE` を有効化し、`DynamoEventSource` でバインド（4 テスト）
+
 ---
 
 ## デプロイ手順
@@ -321,7 +430,11 @@ aws-vault exec personal-dev-source -- cdk destroy
 - **Bedrock マルチモーダル API の注意点**：boto3 の `bedrock-runtime` クライアントは `invoke_model()` のレスポンスキーが小文字の `"body"`（S3 の `"Body"` とは異なる）。`json.loads(response["body"].read())` と読む必要がある
 - **Bedrock の IAM 権限は手動付与が必要**：`grantRead()` / `grantWriteData()` のような CDK 組み込み grant メソッドは Bedrock には存在しないため、`addToRolePolicy()` で `bedrock:InvokeModel` を明示的に付与する
 - **Lambda タイムアウトを 60s に延長**：Bedrock の画像分析（大きい画像・長文回答）では 30s では不足することがある。Bedrock 呼び出しを含む Lambda は余裕を持ったタイムアウト設定が必要
-- **CDK テストフレームワーク**：`aws-cdk-lib/assertions` を使うと CloudFormation テンプレートをユニットテストできる。`npx jest` で 14 テスト全件 PASS を確認済み
+- **3言語 Lambda の並置実装**：Python（`lambda.Function + fromAsset`）/ TypeScript（`NodejsFunction + esbuild`）/ Go（`PROVIDED_AL2023 + ローカルビルド`）を同一 CDK スタックで管理。言語ごとのランタイム・ビルド戦略の違いを体感できる
+- **`NodejsFunction` の esbuild バンドリング**：TypeScript Lambda を個別に `tsc` でコンパイルしなくてよい。`entry` にソースファイルを指定するだけで CDK が esbuild を呼び出してバンドル・トランスパイルする
+- **Go Lambda のクロスコンパイル（Windows）**：`GOARCH=amd64 GOOS=linux go build` は Windows の cmd/bash では動かない。`tryBundle` 内で `process.platform === 'win32'` を判定し、PowerShell の `$env:GOARCH='amd64'` 構文に切り替えることで解決
+- **DynamoDB Stream + `DynamoEventSource`**：テーブルに `stream: StreamViewType.NEW_IMAGE` を追加し、`new DynamoEventSource(table, { startingPosition: TRIM_HORIZON })` を Lambda に addEventSource するだけでストリーム連携が完結
+- **CDK テストフレームワーク**：`aws-cdk-lib/assertions` を使うと CloudFormation テンプレートをユニットテストできる。`npx jest` で 29 テスト全件 PASS を確認済み（CDK Assertions 22件 + TypeScript validator 7件）
 
 ---
 
@@ -334,6 +447,8 @@ aws-vault exec personal-dev-source -- cdk destroy
 | Bedrock で `AccessDeniedException` | Lambda IAM ロールに `bedrock:InvokeModel` がない | `cdk synth` で生成した CloudFormation テンプレートの IAM ポリシーを確認 |
 | DynamoDB に分析結果が書き込まれない | 画像フォーマットが非対応 | 対応フォーマット（jpg/jpeg/png/gif/webp）のファイルをアップロードする |
 | Lambda タイムアウト | 大きな画像の Bedrock 処理が 60 秒を超えた | ファイルサイズを 5MB 以下に縮小して再試行 |
+| Go ビルドが Windows で失敗 | `GOARCH=amd64` が cmd/bash で認識されない | `tryBundle` に `process.platform === 'win32'` 分岐を追加し PowerShell `$env:` 構文を使用 |
+| DynamoDB Stream が Lambda をトリガーしない | Stream が無効 or `DynamoEventSource` 未設定 | テーブルに `stream: StreamViewType.NEW_IMAGE`・`notifierFn.addEventSource(new DynamoEventSource(...))` を確認 |
 
 ---
 
@@ -344,7 +459,7 @@ aws-vault exec personal-dev-source -- cdk destroy
 ```bash
 npm install
 npx jest
-# CDK Assertions で 14 項目を検証
+# CDK Assertions 22件 + TypeScript validator 7件 = 計 29 件を検証
 ```
 
 ### CDK 構成確認
@@ -375,7 +490,7 @@ GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテス�
 |---|---|
 | TypeScript ビルド | 型チェック・コンパイルエラーの検出（`npm run build`） |
 | CDK list | スタック構成の確認（アカウント固有ルックアップなしで実行） |
-| ユニットテスト | CDK Assertions で 14 項目をローカル検証（`npx jest`） |
+| ユニットテスト | CDK Assertions 22件 + TypeScript validator 7件 = 計 29 件をローカル検証（`npx jest`） |
 
 > CI は `CDK_DEFAULT_ACCOUNT: '123456789012'`（ダミー値）で動作。`cdk synth` はアカウント固有のルックアップが必要なため CI では `cdk list` で代替。
 
@@ -396,6 +511,12 @@ GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテス�
 ### TypeScript
 
 - **型補完のおかげでミスが格段に減る**: `s3.BucketEncryption.S3_MANAGED` など設定値を補完で選べるため、Terraform の HCL で文字列をタイポするミスが起きにくい。IDE（VSCode）との相性が CDK の大きな強み。
+
+### 多言語 Lambda × CDK
+
+- **`NodejsFunction` は TypeScript をそのまま渡せる**: esbuild バンドラーが組み込まれているので、`entry: 'lambda_src/validator/index.ts'` と書くだけ。別途 tsc を実行したり dist フォルダを管理する必要がない。
+- **Go Lambda の Windows クロスコンパイルで詰まった**: `GOARCH=amd64 GOOS=linux go build` は Linux/Mac では動くが Windows cmd/bash では認識されない。`tryBundle` の中で `process.platform === 'win32'` を判定して PowerShell 構文に切り替える必要があった。Docker がない環境でもローカルバンドリングが実現できた。
+- **DynamoDB Stream は 1行追加するだけ**: `stream: StreamViewType.NEW_IMAGE` をテーブル定義に追加し、`addEventSource` で Lambda に紐づける。Terraform では `aws_dynamodb_table`・`aws_lambda_event_source_mapping` を別々に書く必要があるが、CDK では数行で完結する。
 
 ---
 
