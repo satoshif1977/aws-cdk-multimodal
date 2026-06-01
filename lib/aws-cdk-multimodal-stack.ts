@@ -59,11 +59,13 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
     // DynamoDB 書き込み権限
     uploadHistoryTable.grantWriteData(processDocFn);
 
-    // Bedrock InvokeModel 権限（JP 推論プロファイル経由でアクセスするため inference-profile ARN も許可）
+    // Bedrock InvokeModel 権限
+    // JP 推論プロファイルは ap-northeast-1（東京）と ap-northeast-3（大阪）の両方にルーティングするため
+    // foundation-model ARN のリージョン部分をワイルドカード（*）にして両リージョンをカバー
     processDocFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],
       resources: [
-        `arn:aws:bedrock:${this.region}::foundation-model/${MODEL_ID}`,
+        `arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`, // TODO: JP推論プロファイルが複数リージョンにルーティングするため * を使用
         `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${MODEL_ID}`,
       ],
     }));
