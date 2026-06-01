@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ## [1.5.0] - 2026-06-01
 
 ### Changed
-- Bedrock モデルを `Claude 3.5 Haiku`（廃止）→ `Claude Haiku 4.5`（`anthropic.claude-haiku-4-5-20251001-v1:0`）に更新
+- Bedrock モデルを `Claude 3.5 Haiku`（廃止）→ `Claude Haiku 4.5`（`apac.anthropic.claude-haiku-4-5-20251001-v1:0`）に更新
 - S3 イベント通知を直接 Lambda 通知から **EventBridge ファンアウト**（`eventBridgeEnabled: true` + `AWS::Events::Rule`）に変更（同バケット同イベント複数 Lambda の S3 制約を回避）
 - Lambda ハンドラーを S3 直接通知形式 → EventBridge イベント形式（`event.detail.object.key`）に更新（validator / process_doc）
 - CDK テスト: `Custom::S3BucketNotifications` → `AWS::Events::Rule` に更新（29 件 PASS 維持）

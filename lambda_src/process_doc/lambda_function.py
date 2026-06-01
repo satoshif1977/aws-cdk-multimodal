@@ -11,7 +11,7 @@ logger.setLevel(logging.INFO)
 
 # ── 定数 ─────────────────────────────────────────────────
 TABLE_NAME = os.environ["TABLE_NAME"]
-MODEL_ID = os.environ.get("MODEL_ID", "anthropic.claude-haiku-4-5-20251001-v1:0")
+MODEL_ID = os.environ.get("MODEL_ID", "apac.anthropic.claude-haiku-4-5-20251001-v1:0")
 REGION = os.environ.get("AWS_DEFAULT_REGION", "ap-northeast-1")
 
 SUPPORTED_IMAGE_TYPES: dict[str, str] = {

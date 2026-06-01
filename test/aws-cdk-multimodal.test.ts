@@ -87,7 +87,7 @@ describe('Lambda', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Environment: {
         Variables: Match.objectLike({
-          MODEL_ID: 'anthropic.claude-haiku-4-5-20251001-v1:0',
+          MODEL_ID: 'apac.anthropic.claude-haiku-4-5-20251001-v1:0',
         }),
       },
     });

@@ -10,7 +10,7 @@ import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
-const MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
+const MODEL_ID = 'apac.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 export class AwsCdkMultimodalStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
