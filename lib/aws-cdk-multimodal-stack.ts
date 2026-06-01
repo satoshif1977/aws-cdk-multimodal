@@ -59,11 +59,12 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
     // DynamoDB 書き込み権限
     uploadHistoryTable.grantWriteData(processDocFn);
 
-    // Bedrock InvokeModel 権限（Claude 3 Haiku のみ）
+    // Bedrock InvokeModel 権限（JP 推論プロファイル経由でアクセスするため inference-profile ARN も許可）
     processDocFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],
       resources: [
         `arn:aws:bedrock:${this.region}::foundation-model/${MODEL_ID}`,
+        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${MODEL_ID}`,
       ],
     }));
 
