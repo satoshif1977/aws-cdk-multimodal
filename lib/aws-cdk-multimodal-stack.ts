@@ -3,13 +3,14 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
-import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
-const MODEL_ID = 'anthropic.claude-3-5-haiku-20241022-v1:0';
+const MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
 
 export class AwsCdkMultimodalStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -22,6 +23,7 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
       versioned: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      eventBridgeEnabled: true, // EventBridge ファンアウト（複数 Lambda への並列通知）
     });
 
     // ── DynamoDB テーブル（アップロード履歴 + 分析結果） ────────
@@ -65,11 +67,20 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
       ],
     }));
 
-    // S3 ObjectCreated イベントで Lambda を起動
-    docsBucket.addEventNotification(
-      s3.EventType.OBJECT_CREATED,
-      new s3n.LambdaDestination(processDocFn),
-    );
+    // S3 ObjectCreated イベント → EventBridge ルールで ValidatorFn・ProcessDocFn に並列ファンアウト
+    // （同バケット同イベントへの直接 Lambda 通知は S3 の制約で 1 件のみ → EventBridge で回避）
+    const s3ObjectCreatedRule = new events.Rule(this, 'S3ObjectCreatedRule', {
+      eventPattern: {
+        source: ['aws.s3'],
+        detailType: ['Object Created'],
+        detail: {
+          bucket: { name: [docsBucket.bucketName] },
+        },
+      },
+    });
+
+    s3ObjectCreatedRule.addTarget(new eventsTargets.LambdaFunction(processDocFn));
+
 
     // ── TypeScript Lambda（validator） ────────────────────────
     // S3 ObjectCreated → ファイルサイズ（10MB上限）・拡張子（画像のみ）バリデーション
@@ -84,10 +95,7 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
     });
 
-    docsBucket.addEventNotification(
-      s3.EventType.OBJECT_CREATED,
-      new s3n.LambdaDestination(validatorFn),
-    );
+    s3ObjectCreatedRule.addTarget(new eventsTargets.LambdaFunction(validatorFn));
 
     // ── Go Lambda（notifier） ─────────────────────────────────
     // DynamoDB Stream（INSERT）→ CloudWatch カスタムメトリクス送信

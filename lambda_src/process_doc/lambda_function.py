@@ -11,7 +11,7 @@ logger.setLevel(logging.INFO)
 
 # ── 定数 ─────────────────────────────────────────────────
 TABLE_NAME = os.environ["TABLE_NAME"]
-MODEL_ID = os.environ.get("MODEL_ID", "anthropic.claude-3-5-haiku-20241022-v1:0")
+MODEL_ID = os.environ.get("MODEL_ID", "anthropic.claude-haiku-4-5-20251001-v1:0")
 REGION = os.environ.get("AWS_DEFAULT_REGION", "ap-northeast-1")
 
 SUPPORTED_IMAGE_TYPES: dict[str, str] = {
@@ -86,16 +86,27 @@ def analyze_image(image_base64: str, media_type: str) -> str:
 
 # ── メイン処理 ────────────────────────────────────────────
 def lambda_handler(event: dict, context: object) -> dict:
-    """S3 ObjectCreated イベントを受け取り、画像は Bedrock で分析して DynamoDB に記録する。"""
+    """EventBridge S3 ObjectCreated イベントを受け取り、画像は Bedrock で分析して DynamoDB に記録する。"""
 
     table = dynamodb.Table(TABLE_NAME)
-    records = event.get("Records", [])
-    logger.info(f"受信レコード数: {len(records)}")
+
+    # EventBridge S3 "Object Created" イベント形式: event["detail"]["bucket"]["name"] 等
+    detail = event.get("detail", {})
+    bucket = detail.get("bucket", {}).get("name", "")
+    key = detail.get("object", {}).get("key", "")
+    size = detail.get("object", {}).get("size", 0)
+
+    if not bucket or not key:
+        logger.error(f"イベント形式不正: detail={detail}")
+        return {"statusCode": 400, "body": json.dumps({"message": "invalid event"})}
+
+    records = [{"bucket": bucket, "key": key, "size": size}]
+    logger.info(f"受信: bucket={bucket}, key={key}, size={size} bytes")
 
     for record in records:
-        bucket = record["s3"]["bucket"]["name"]
-        key = record["s3"]["object"]["key"]
-        size = record["s3"]["object"].get("size", 0)
+        bucket = record["bucket"]
+        key = record["key"]
+        size = record["size"]
         uploaded_at = datetime.now(timezone.utc).isoformat()
         media_type = get_media_type(key)
 
@@ -133,5 +144,5 @@ def lambda_handler(event: dict, context: object) -> dict:
 
     return {
         "statusCode": 200,
-        "body": json.dumps({"message": "processed", "records": len(records)}),
+        "body": json.dumps({"message": "processed", "key": key}),
     }

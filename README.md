@@ -11,7 +11,7 @@
 ![Claude Skills](https://img.shields.io/badge/Custom-Skills%20Configured-green?logo=anthropic)
 
 AWS CDK（TypeScript）で S3 + 3言語 Lambda + Amazon Bedrock + DynamoDB によるイベント駆動アーキテクチャを定義・デプロイする実装例です。
-S3 にアップロードされた画像を Lambda が検知し、Amazon Bedrock（Claude 3.5 Haiku）でマルチモーダル分析して結果を DynamoDB に記録します。
+S3 にアップロードされた画像を Lambda が検知し、Amazon Bedrock（Claude Haiku 4.5）でマルチモーダル分析して結果を DynamoDB に記録します。
 **Python / TypeScript / Go** の 3言語 Lambda を並置実装しており、DynamoDB Stream を使ったリアルタイム通知（CloudWatch カスタムメトリクス）も含みます。
 Terraform との比較を意識しながら、CDK の基本的な使い方（synth / bootstrap / deploy / destroy）と高レベル抽象化（L2 Construct / grantRead / grantWriteData / NodejsFunction / DynamoEventSource）を習得するためのプロジェクトです。
 
@@ -37,7 +37,7 @@ S3 バケット ─ ObjectCreated ──→ ValidatorFunction（TypeScript / Nod
                                   └─ 拡張子チェック（jpg/png/gif/webp のみ）
                                   └─ サイズチェック（10 MB 上限）
              ─ ObjectCreated ──→ ProcessDocFunction（Python 3.12 / 60s）
-                                  ├─ 画像ファイル: Bedrock Claude 3.5 Haiku でマルチモーダル分析
+                                  ├─ 画像ファイル: Bedrock Claude Haiku 4.5 でマルチモーダル分析
                                   │    → DynamoDB（分析結果 + メタデータ記録）
                                   └─ 非画像ファイル: DynamoDB（メタデータのみ記録）
 
@@ -55,7 +55,7 @@ DynamoDB Stream（NEW_IMAGE / INSERT）
 | IaC | AWS CDK（TypeScript） |
 | ストレージ | Amazon S3（暗号化・バージョニング） |
 | コンピュート | AWS Lambda（Python 3.12 / Node.js 22.x / provided.al2023）|
-| AI / 生成 AI | Amazon Bedrock / Claude 3.5 Haiku（マルチモーダル画像分析） |
+| AI / 生成 AI | Amazon Bedrock / Claude Haiku 4.5（マルチモーダル画像分析） |
 | データベース | Amazon DynamoDB（PAY_PER_REQUEST・Stream NEW_IMAGE） |
 | 監視 | Amazon CloudWatch Logs / CloudWatch カスタムメトリクス |
 | 言語 | TypeScript / Python / Go |
@@ -178,7 +178,7 @@ template.hasResourceProperties('AWS::IAM::Policy', {
 
 ### Phase 5: Bedrock マルチモーダル分析（`lambda_src/process_doc/lambda_function.py`）
 
-S3 にアップロードされた画像を Bedrock Claude 3.5 Haiku でマルチモーダル分析します。
+S3 にアップロードされた画像を Bedrock Claude Haiku 4.5 でマルチモーダル分析します。
 
 ```python
 def analyze_image(image_base64: str, media_type: str) -> str:
@@ -241,7 +241,7 @@ processDocFn.addToRolePolicy(new iam.PolicyStatement({
 | fileKey | ✅ | ✅ |
 | bucket / size / uploadedAt | ✅ | ✅ |
 | fileType | `"image"` | `"document"` |
-| modelId | Claude 3.5 Haiku ARN | なし |
+| modelId | Claude Haiku 4.5 ARN | なし |
 | analysisResult | Claude の分析テキスト（日本語） | なし |
 
 ### Phase 6: TypeScript Lambda バリデーター（`lambda_src/validator/index.ts`）

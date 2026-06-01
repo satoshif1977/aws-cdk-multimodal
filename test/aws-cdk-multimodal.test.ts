@@ -87,14 +87,19 @@ describe('Lambda', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Environment: {
         Variables: Match.objectLike({
-          MODEL_ID: 'anthropic.claude-3-5-haiku-20241022-v1:0',
+          MODEL_ID: 'anthropic.claude-haiku-4-5-20251001-v1:0',
         }),
       },
     });
   });
 
-  test('S3 ObjectCreated イベント通知が設定される', () => {
-    template.resourceCountIs('Custom::S3BucketNotifications', 1);
+  test('EventBridge ルールで S3 ObjectCreated イベントを受け取る', () => {
+    template.hasResourceProperties('AWS::Events::Rule', {
+      EventPattern: Match.objectLike({
+        source: ['aws.s3'],
+        'detail-type': ['Object Created'],
+      }),
+    });
   });
 
   test('TypeScript validator Lambda が Node.js 22.x で作成される', () => {
