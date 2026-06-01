@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-01
+
+### Changed
+- aws-cdk-lib を 2.253.1 に更新
+- aws-cdk (CLI) を 2.1121.0 に更新
+- @types/node を 25.6.2 に更新
+- jest を 30.4.2 に更新
+- GitHub Actions: `actions/checkout` v6・`actions/setup-node` v6・`actions/github-script` v9 に更新
+
+### Notes
+- typescript v6 は CDK ビルドと非互換のため v5 系を維持（PR#5 クローズ）
+
 ## [1.2.1] - 2026-05-26
 
 ### Fixed
