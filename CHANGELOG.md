@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-06-04
+
+### Changed
+- CI ワークフローのブランチ指定を `master` → `main` に修正（`cdk-synth.yml` / `cdk-diff.yml`）
+- `cdk-diff.yml`: `actions/checkout@v4` → `@v6` / `actions/setup-node@v4` → `@v6` に更新
+- `aws-cdk-lib`: 2.253.1 → 2.257.0
+- `aws-cdk`: 2.1121.0 → 2.1125.0
+- `ts-jest`: 29.4.9 → 29.4.11
+- `actions/checkout`: v4 → v6
+- `actions/setup-node`: v4 → v6
+
 ## [1.5.0] - 2026-06-01
 
 ### Changed
