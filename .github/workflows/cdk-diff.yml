@@ -2,7 +2,7 @@ name: CDK Diff（PR コメント）
 
 on:
   pull_request:
-    branches: [master]
+    branches: [main]
 
 permissions:
   pull-requests: write
@@ -18,9 +18,9 @@ jobs:
       CDK_DEFAULT_REGION: 'ap-northeast-1'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'npm'
