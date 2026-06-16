@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-06-16
+
+### Changed
+- esbuild 0.28.0 → 0.28.1
+- @types/node 25.9.1 → 25.9.3
+- @types/aws-lambda 8.10.161 → 8.10.162
+- aws-cdk 2.1125.0 → 2.1126.0
+
+
 ## [1.6.0] - 2026-06-04
 
 ### Changed
