@@ -2,6 +2,8 @@
 
 ![CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-blue?logo=amazon-aws)
 ![CI](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/cdk-synth.yml/badge.svg)
+[![Go Test](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/go-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/go-test.yml)
+[![Python Test](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/python-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/python-test.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)

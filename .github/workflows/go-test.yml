@@ -1,0 +1,29 @@
+name: Go Test
+
+on:
+  push:
+    paths:
+      - "lambda_src/notifier/**"
+      - ".github/workflows/go-test.yml"
+  pull_request:
+    paths:
+      - "lambda_src/notifier/**"
+      - ".github/workflows/go-test.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lambda_src/notifier
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: lambda_src/notifier/go.mod
+
+      - name: Run tests
+        run: go test ./... -v
