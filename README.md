@@ -436,7 +436,7 @@ aws-vault exec personal-dev-source -- cdk destroy
 - **`NodejsFunction` の esbuild バンドリング**：TypeScript Lambda を個別に `tsc` でコンパイルしなくてよい。`entry` にソースファイルを指定するだけで CDK が esbuild を呼び出してバンドル・トランスパイルする
 - **Go Lambda のクロスコンパイル（Windows）**：`GOARCH=amd64 GOOS=linux go build` は Windows の cmd/bash では動かない。`tryBundle` 内で `process.platform === 'win32'` を判定し、PowerShell の `$env:GOARCH='amd64'` 構文に切り替えることで解決
 - **DynamoDB Stream + `DynamoEventSource`**：テーブルに `stream: StreamViewType.NEW_IMAGE` を追加し、`new DynamoEventSource(table, { startingPosition: TRIM_HORIZON })` を Lambda に addEventSource するだけでストリーム連携が完結
-- **CDK テストフレームワーク**：`aws-cdk-lib/assertions` を使うと CloudFormation テンプレートをユニットテストできる。`npx jest` で 29 テスト全件 PASS を確認済み（CDK Assertions 22件 + TypeScript validator 7件）
+- **CDK テストフレームワーク**：`aws-cdk-lib/assertions` を使うと CloudFormation テンプレートをユニットテストできる。`npx jest` で 29 テスト全件 PASS を確認済み（CDK Assertions 22件 + TypeScript validator 7件）。Go 4件・Python 25件も追加済み（合計 58件）
 
 ---
 
@@ -462,6 +462,23 @@ aws-vault exec personal-dev-source -- cdk destroy
 npm install
 npx jest
 # CDK Assertions 22件 + TypeScript validator 7件 = 計 29 件を検証
+```
+
+### Go テスト（Notifier Lambda）
+
+```bash
+cd lambda_src/notifier
+go test ./... -v
+# 4件 PASS（INSERT フィルタリング・CloudWatch namespace 確認）
+```
+
+### Python テスト（ProcessDoc Lambda）
+
+```bash
+cd lambda_src/process_doc
+pip install pytest boto3
+pytest test_lambda_function.py -v
+# 25件 PASS（get_media_type 全拡張子・画像/ドキュメント/異常系）
 ```
 
 ### CDK 構成確認
@@ -493,6 +510,8 @@ GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテス�
 | TypeScript ビルド | 型チェック・コンパイルエラーの検出（`npm run build`） |
 | CDK list | スタック構成の確認（アカウント固有ルックアップなしで実行） |
 | ユニットテスト | CDK Assertions 22件 + TypeScript validator 7件 = 計 29 件をローカル検証（`npx jest`） |
+| Go テスト | notifier Lambda 4件（`go test ./...`） |
+| Python テスト | process_doc Lambda 25件（`pytest test_lambda_function.py`） |
 
 > CI は `CDK_DEFAULT_ACCOUNT: '123456789012'`（ダミー値）で動作。`cdk synth` はアカウント固有のルックアップが必要なため CI では `cdk list` で代替。
 
