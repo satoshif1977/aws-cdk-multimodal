@@ -4,6 +4,7 @@
 ![CI](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/cdk-synth.yml/badge.svg)
 [![Go Test](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/go-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/go-test.yml)
 [![Python Test](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/python-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/python-test.yml)
+[![TS Test](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/ts-test.yml/badge.svg)](https://github.com/satoshif1977/aws-cdk-multimodal/actions/workflows/ts-test.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
@@ -456,13 +457,20 @@ aws-vault exec personal-dev-source -- cdk destroy
 
 ## ローカル開発・テスト方法
 
-### ユニットテスト（デプロイ不要・約 5 秒）
+### TypeScript ユニットテスト（デプロイ不要・約 5 秒）
 
 ```bash
 npm install
-npx jest
-# CDK Assertions 22件 + TypeScript validator 7件 = 計 29 件を検証
+npm test
+# CDK Assertions 21件 + validator 21件（validateRecord 10件 + handler 11件）= 計 42 件を検証
 ```
+
+| テストグループ | 件数 | 検証内容 |
+|---|---|---|
+| CDK Assertions（`test/`） | 21 件 | S3・DynamoDB・Lambda・IAM・EventBridge の設定値を検証 |
+| validateRecord（`lambda_src/validator/`） | 10 件 | 拡張子判定・サイズ制限・URL デコード・境界値 |
+| handler（`lambda_src/validator/`） | 11 件 | EventBridge 経由のハンドラー・日本語キー・plus エンコード |
+| **合計** | **42 件** | |
 
 ### Go テスト（Notifier Lambda）
 
@@ -505,13 +513,12 @@ print('is image:', ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'])
 
 GitHub Actions で TypeScript ビルド・CDK 構成検証・ユニットテストを自動実行しています。
 
-| ジョブ | 内容 |
-|---|---|
-| TypeScript ビルド | 型チェック・コンパイルエラーの検出（`npm run build`） |
-| CDK list | スタック構成の確認（アカウント固有ルックアップなしで実行） |
-| ユニットテスト | CDK Assertions 22件 + TypeScript validator 7件 = 計 29 件をローカル検証（`npx jest`） |
-| Go テスト | notifier Lambda 4件（`go test ./...`） |
-| Python テスト | process_doc Lambda 25件（`pytest test_lambda_function.py`） |
+| ジョブ | ワークフロー | 内容 |
+|---|---|---|
+| TypeScript 型チェック + Jest | ts-test.yml | tsc --noEmit + CDK Assertions 21件 + validator 21件 = 計 **42 件** |
+| Go テスト | go-test.yml | notifier Lambda **4 件**（`go test ./...`） |
+| Python テスト | python-test.yml | process_doc Lambda **25 件**（`pytest`） |
+| CDK Synth 検証 | cdk-synth.yml | TypeScript ビルド + `cdk list`（アカウント固有ルックアップなしで実行） |
 
 > CI は `CDK_DEFAULT_ACCOUNT: '123456789012'`（ダミー値）で動作。`cdk synth` はアカウント固有のルックアップが必要なため CI では `cdk list` で代替。
 

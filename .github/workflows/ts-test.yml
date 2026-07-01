@@ -1,0 +1,40 @@
+name: TypeScript Test
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "lambda_src/validator/**"
+      - "test/**"
+      - ".github/workflows/ts-test.yml"
+  pull_request:
+    paths:
+      - "lambda_src/validator/**"
+      - "test/**"
+      - ".github/workflows/ts-test.yml"
+
+jobs:
+  test:
+    name: TypeScript 型チェック + Jest
+    runs-on: ubuntu-latest
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript 型チェック
+        run: npx tsc --noEmit
+
+      - name: Jest ユニットテスト
+        run: npm test
