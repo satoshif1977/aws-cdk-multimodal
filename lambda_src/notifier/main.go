@@ -15,7 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 )
 
-var cwClient *cloudwatch.Client
+// MetricPutter abstracts the CloudWatch PutMetricData call for testing.
+type MetricPutter interface {
+	PutMetricData(ctx context.Context, params *cloudwatch.PutMetricDataInput, optFns ...func(*cloudwatch.Options)) (*cloudwatch.PutMetricDataOutput, error)
+}
+
+var cwClient MetricPutter
 
 func init() {
 	cfg, err := config.LoadDefaultConfig(context.Background())
@@ -33,9 +38,9 @@ func namespace() string {
 	return "MultimodalApp"
 }
 
-// ProcessRecords sends a CloudWatch custom metric for each INSERT record
-// in the DynamoDB stream event. Returns the count of metrics published.
-func ProcessRecords(ctx context.Context, event events.DynamoDBEvent) (int, error) {
+// processRecords is the testable core logic: sends a CloudWatch metric for
+// each INSERT record using the provided MetricPutter.
+func processRecords(ctx context.Context, event events.DynamoDBEvent, client MetricPutter) (int, error) {
 	var published int
 
 	for _, record := range event.Records {
@@ -48,7 +53,7 @@ func ProcessRecords(ctx context.Context, event events.DynamoDBEvent) (int, error
 			fileKey = v.String()
 		}
 
-		_, err := cwClient.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
+		_, err := client.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 			Namespace: aws.String(namespace()),
 			MetricData: []types.MetricDatum{
 				{
@@ -74,6 +79,12 @@ func ProcessRecords(ctx context.Context, event events.DynamoDBEvent) (int, error
 	}
 
 	return published, nil
+}
+
+// ProcessRecords sends a CloudWatch custom metric for each INSERT record
+// in the DynamoDB stream event. Returns the count of metrics published.
+func ProcessRecords(ctx context.Context, event events.DynamoDBEvent) (int, error) {
+	return processRecords(ctx, event, cwClient)
 }
 
 func handler(ctx context.Context, event events.DynamoDBEvent) error {
