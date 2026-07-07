@@ -191,3 +191,98 @@ describe('Outputs', () => {
     template.hasOutput('TableName', {});
   });
 });
+
+// ── S3 詳細テスト ─────────────────────────────────────────
+describe('S3 詳細', () => {
+  test('S3 バケットが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 1);
+  });
+
+  test('S3 バケットの削除ポリシーが Delete である（学習環境）', () => {
+    template.hasResource('AWS::S3::Bucket', {
+      UpdateReplacePolicy: 'Delete',
+      DeletionPolicy: 'Delete',
+    });
+  });
+});
+
+// ── DynamoDB 詳細テスト ───────────────────────────────────
+describe('DynamoDB 詳細', () => {
+  test('DynamoDB テーブルが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::DynamoDB::Table', 1);
+  });
+
+  test('DynamoDB テーブルの削除ポリシーが Delete である（学習環境）', () => {
+    template.hasResource('AWS::DynamoDB::Table', {
+      UpdateReplacePolicy: 'Delete',
+      DeletionPolicy: 'Delete',
+    });
+  });
+});
+
+// ── Lambda 詳細テスト ─────────────────────────────────────
+describe('Lambda 詳細', () => {
+  test('Validator Lambda タイムアウトが 10 秒である', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'nodejs22.x',
+      Timeout: 10,
+    });
+  });
+
+  test('Notifier Lambda タイムアウトが 30 秒である', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'provided.al2023',
+      Timeout: 30,
+    });
+  });
+});
+
+// ── DynamoDB Event Source Mapping テスト ─────────────────
+describe('DynamoDB Event Source Mapping', () => {
+  test('Event Source Mapping が 1 つ作成される', () => {
+    template.resourceCountIs('AWS::Lambda::EventSourceMapping', 1);
+  });
+
+  test('バッチサイズが 10 である', () => {
+    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+      BatchSize: 10,
+    });
+  });
+
+  test('最大リトライ回数が 2 である', () => {
+    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+      MaximumRetryAttempts: 2,
+    });
+  });
+});
+
+// ── EventBridge 詳細テスト ────────────────────────────────
+describe('EventBridge 詳細', () => {
+  test('EventBridge ルールが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::Events::Rule', 1);
+  });
+
+  test('EventBridge ルールに 2 つのターゲットが設定される（ProcessDoc / Validator）', () => {
+    const rules = template.findResources('AWS::Events::Rule');
+    const targets = Object.values(rules).flatMap((r: any) => r.Properties?.Targets ?? []);
+    expect(targets.length).toBe(2);
+  });
+});
+
+// ── IAM 詳細テスト ────────────────────────────────────────
+describe('IAM 詳細', () => {
+  test('Bedrock InvokeModel に inference-profile ARN が含まれる', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('inference-profile');
+  });
+
+  test('S3 読み取り権限ポリシーが存在する（s3:GetObject）', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('s3:GetObject');
+  });
+
+  test('DynamoDB 書き込み権限ポリシーが存在する（dynamodb:PutItem）', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('dynamodb:PutItem');
+  });
+});
