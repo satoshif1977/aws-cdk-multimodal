@@ -37,4 +37,11 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Jest ユニットテスト
-        run: npm test
+        run: npm test -- --coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: coverage
+          flags: typescript
+          fail_ci_if_error: false

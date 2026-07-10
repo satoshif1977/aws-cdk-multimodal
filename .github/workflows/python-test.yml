@@ -26,7 +26,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install pytest boto3
+        run: pip install pytest pytest-cov boto3
 
       - name: Run pytest
-        run: pytest test_lambda_function.py -v
+        run: pytest test_lambda_function.py -v --cov=. --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: python
+          fail_ci_if_error: false
