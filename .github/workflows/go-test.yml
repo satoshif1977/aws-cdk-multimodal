@@ -28,7 +28,7 @@ jobs:
       - name: Run tests
         run: go test ./... -v -coverprofile=coverage.out -covermode=atomic
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lambda_src/notifier/coverage.out
