@@ -9,8 +9,6 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import * as path from 'path';
-import { NagSuppressions } from 'cdk-nag';
-
 const MODEL_ID = 'jp.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 export class AwsCdkMultimodalStack extends cdk.Stack {
@@ -188,33 +186,22 @@ export class AwsCdkMultimodalStack extends cdk.Stack {
       description: 'アップロード履歴 + 分析結果 DynamoDB テーブル名',
     });
 
-    // ── cdk-nag suppressions（dev 環境の意図的な省略） ────────────
-    NagSuppressions.addStackSuppressions(this, [
-      {
-        id: 'AwsSolutions-L1',
-        reason: 'PYTHON_3_12 / NODEJS_22_X / PROVIDED_AL2023 は現時点で最新ランタイム。cdk-nag のルール定義が追いついていないため抑制。',
-      },
-      {
-        id: 'AwsSolutions-S1',
-        reason: 'dev 環境のため S3 サーバーアクセスログは省略。本番では別バケットへのアクセスログを有効化すること。',
-      },
-      {
-        id: 'AwsSolutions-S10',
-        reason: 'dev 環境のため S3 HTTPS 強制ポリシーは未設定。本番では aws:SecureTransport 条件のバケットポリシーを追加すること。',
-      },
-      {
-        id: 'AwsSolutions-IAM4',
-        reason: 'AWSLambdaBasicExecutionRole は CDK Lambda が自動付与する標準マネージドポリシー。Lambda 基本実行権限として許容。',
-        appliesTo: ['Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'],
-      },
-      {
-        id: 'AwsSolutions-IAM5',
-        reason: 'CDK grantRead が自動生成する S3 ワイルドカード・cloudwatch:PutMetricData は Resource:* 必須（AWS 仕様）・Bedrock JP 推論プロファイルは複数リージョンへのルーティングに * が必要（コード内 TODO コメント参照）。',
-      },
-      {
-        id: 'AwsSolutions-DDB3',
-        reason: 'dev 環境のため PITR は無効。本番では pointInTimeRecovery: true を設定すること。',
-      },
-    ]);
+    // ── cdk-nag v3 acknowledgments（dev 環境の意図的な省略） ─────
+    // シンプルな finding ID（:: が2回以下）は cdk.Validations.of().acknowledge() で抑制
+    cdk.Validations.of(this).acknowledge({ id: 'AwsSolutions-L1', reason: 'PYTHON_3_12 / NODEJS_22_X / PROVIDED_AL2023 は現時点で最新ランタイム。cdk-nag のルール定義が追いついていないため抑制。' });
+    cdk.Validations.of(this).acknowledge({ id: 'AwsSolutions-S1', reason: 'dev 環境のため S3 サーバーアクセスログは省略。本番では別バケットへのアクセスログを有効化すること。' });
+    cdk.Validations.of(this).acknowledge({ id: 'AwsSolutions-S10', reason: 'dev 環境のため S3 HTTPS 強制ポリシーは未設定。本番では aws:SecureTransport 条件のバケットポリシーを追加すること。' });
+    cdk.Validations.of(this).acknowledge({ id: 'AwsSolutions-DDB3', reason: 'dev 環境のため PITR は無効。本番では pointInTimeRecovery: true を設定すること。' });
+    cdk.Validations.of(this).acknowledge({ id: 'AwsSolutions-IAM5[Resource::*]', reason: 'cloudwatch:PutMetricData は Resource:* 必須（AWS 仕様）。CDK 自動生成の DynamoDB stream 権限も含む。' });
+
+    // IAM4（AWSLambdaBasicExecutionRole）は ARN を含む finding ID（:: が3回以上）
+    // → CDK が InvalidValidationId を throw するため node.addMetadata で直接投入
+    const ACK_KEY = 'aws:cdk:acknowledged-rules';
+    const iam4FindingId = 'AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]';
+    for (const fn of [processDocFn, validatorFn, notifierFn]) {
+      fn.node.addMetadata(ACK_KEY, {
+        [iam4FindingId]: 'AWSLambdaBasicExecutionRole は CDK Lambda が自動付与する標準マネージドポリシー。Lambda 基本実行権限として許容。',
+      });
+    }
   }
 }
