@@ -104,3 +104,34 @@ describe('IAM 詳細', () => {
     template.resourceCountIs('AWS::S3::BucketPolicy', 1);
   });
 });
+
+// ── Lambda メモリ・設定詳細 ────────────────────────────────────────
+describe('Lambda 設定詳細', () => {
+  test('ProcessDoc Lambda のメモリサイズがデフォルト 128MB である', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'python3.12',
+      MemorySize: Match.absent(),
+    });
+  });
+
+  test('Notifier Lambda のタイムアウトが 30 秒である', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'provided.al2023',
+      Timeout: 30,
+    });
+  });
+
+  test('EventBridge イベントパターンにバケット名フィルターが含まれる', () => {
+    const rules = template.findResources('AWS::Events::Rule');
+    const patterns = Object.values(rules).map((r: any) => JSON.stringify(r.Properties?.EventPattern ?? {}));
+    expect(patterns.some((p) => p.includes('name'))).toBe(true);
+  });
+
+  test('DynamoDB KeySchema の attributeType が STRING である', () => {
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      AttributeDefinitions: Match.arrayWith([
+        Match.objectLike({ AttributeName: 'fileKey', AttributeType: 'S' }),
+      ]),
+    });
+  });
+});

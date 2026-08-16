@@ -98,6 +98,28 @@ describe('validateRecord', () => {
     const result = validateRecord(makeRecord('anim.gif', 4096));
     expect(result.valid).toBe(true);
   });
+
+  test('拡張子なしのファイルは invalid である', () => {
+    const result = validateRecord(makeRecord('noextension', 1024));
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('unsupported extension');
+  });
+
+  test('大文字拡張子 .JPG は toLowerCase により valid である', () => {
+    const result = validateRecord(makeRecord('PHOTO.JPG', 1024));
+    expect(result.valid).toBe(true);
+  });
+
+  test('size 0 のファイルは valid である（0 <= 10MB）', () => {
+    const result = validateRecord(makeRecord('empty.png', 0));
+    expect(result.valid).toBe(true);
+  });
+
+  test('複数ドットのファイル名は最後の拡張子で判定される', () => {
+    const result = validateRecord(makeRecord('my.photo.2024.jpg', 2048));
+    expect(result.valid).toBe(true);
+    expect(result.fileKey).toBe('my.photo.2024.jpg');
+  });
 });
 
 // ── handler（EventBridge S3 ObjectCreated イベント） ───────
@@ -155,5 +177,28 @@ describe('handler', () => {
     const result = await handler(makeEvent('my+image.png', 1024));
     expect(result.valid).toBe(true);
     expect(result.fileKey).toBe('my image.png');
+  });
+
+  test('拡張子なし → invalid in handler', async () => {
+    const result = await handler(makeEvent('noextension', 512));
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('unsupported extension');
+  });
+
+  test('大文字拡張子 .PNG → valid in handler（toLowerCase あり）', async () => {
+    const result = await handler(makeEvent('IMAGE.PNG', 1024));
+    expect(result.valid).toBe(true);
+  });
+
+  test('size 0 → valid in handler', async () => {
+    const result = await handler(makeEvent('empty.jpeg', 0));
+    expect(result.valid).toBe(true);
+    expect(result.fileKey).toBe('empty.jpeg');
+  });
+
+  test('invalid 時の reason に拡張子情報が含まれる', async () => {
+    const result = await handler(makeEvent('document.docx', 100));
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('.docx');
   });
 });
