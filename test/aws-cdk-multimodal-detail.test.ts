@@ -135,3 +135,58 @@ describe('Lambda 設定詳細', () => {
     });
   });
 });
+
+// ── インフラ詳細（追加） ──────────────────────────────────────────
+describe('インフラ詳細', () => {
+  test('ProcessDoc Lambda の handler が lambda_function.lambda_handler である', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Handler: 'lambda_function.lambda_handler',
+    });
+  });
+
+  test('Validator Lambda の handler が index.handler である', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'nodejs22.x',
+      Handler: 'index.handler',
+    });
+  });
+
+  test('IAM に foundation-model ARN が含まれる', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('foundation-model');
+  });
+
+  test('CfnOutput が 5 件存在する', () => {
+    const outputs = template.toJSON().Outputs;
+    expect(Object.keys(outputs ?? {}).length).toBe(5);
+  });
+
+  test('DynamoDB PITR が absent（dev 環境）', () => {
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      PointInTimeRecoverySpecification: Match.absent(),
+    });
+  });
+
+  test('S3 LifecycleConfiguration が absent（dev 環境）', () => {
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      LifecycleConfiguration: Match.absent(),
+    });
+  });
+
+  test('Lambda EventSourceMapping に BisectBatchOnFunctionError が設定されていない', () => {
+    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+      BisectBatchOnFunctionError: Match.absent(),
+    });
+  });
+
+  test('notifierFn Runtime と CW_NAMESPACE の組み合わせが正しい', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'provided.al2023',
+      Environment: {
+        Variables: Match.objectLike({
+          CW_NAMESPACE: 'MultimodalApp',
+        }),
+      },
+    });
+  });
+});

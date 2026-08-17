@@ -120,6 +120,24 @@ describe('validateRecord', () => {
     expect(result.valid).toBe(true);
     expect(result.fileKey).toBe('my.photo.2024.jpg');
   });
+
+  test('.jpeg 拡張子は valid である', () => {
+    const result = validateRecord(makeRecord('photo.jpeg', 1024));
+    expect(result.valid).toBe(true);
+    expect(result.fileKey).toBe('photo.jpeg');
+  });
+
+  test('valid 時 reason プロパティが undefined である', () => {
+    const result = validateRecord(makeRecord('image.png', 100));
+    expect(result.reason).toBeUndefined();
+  });
+
+  test('サイズオーバー時 reason にバイト数が含まれる', () => {
+    const overSize = 11 * 1024 * 1024;
+    const result = validateRecord(makeRecord('big.jpg', overSize));
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain(String(overSize));
+  });
 });
 
 // ── handler（EventBridge S3 ObjectCreated イベント） ───────
@@ -200,5 +218,29 @@ describe('handler', () => {
     const result = await handler(makeEvent('document.docx', 100));
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('.docx');
+  });
+
+  test('gif は valid in handler', async () => {
+    const result = await handler(makeEvent('animation.gif', 2048));
+    expect(result.valid).toBe(true);
+    expect(result.fileKey).toBe('animation.gif');
+  });
+
+  test('valid 時 reason が undefined である in handler', async () => {
+    const result = await handler(makeEvent('ok.png', 512));
+    expect(result.reason).toBeUndefined();
+  });
+
+  test('サイズオーバー時 reason にバイト数が含まれる in handler', async () => {
+    const overSize = 20 * 1024 * 1024;
+    const result = await handler(makeEvent('huge.jpg', overSize));
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain(String(overSize));
+  });
+
+  test('%20 エンコードのスペースが正しくデコードされる in handler', async () => {
+    const result = await handler(makeEvent('my%20photo.jpg', 1024));
+    expect(result.valid).toBe(true);
+    expect(result.fileKey).toBe('my photo.jpg');
   });
 });
