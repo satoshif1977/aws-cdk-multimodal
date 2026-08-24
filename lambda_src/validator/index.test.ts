@@ -243,4 +243,41 @@ describe('handler', () => {
     expect(result.valid).toBe(true);
     expect(result.fileKey).toBe('my photo.jpg');
   });
+
+  test('console.warn が invalid 時に呼ばれる', async () => {
+    const spy = jest.spyOn(console, 'warn').mockImplementation();
+    await handler(makeEvent('bad.bmp', 100));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[INVALID]'));
+    spy.mockRestore();
+  });
+
+  test('console.log が valid 時に呼ばれる', async () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation();
+    await handler(makeEvent('ok.png', 100));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[VALID]'));
+    spy.mockRestore();
+  });
+
+  test('console.warn がサイズオーバー時に呼ばれる', async () => {
+    const spy = jest.spyOn(console, 'warn').mockImplementation();
+    await handler(makeEvent('huge.jpg', 11 * 1024 * 1024));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[INVALID]'));
+    spy.mockRestore();
+  });
+
+  test('.svg 拡張子は invalid である', async () => {
+    const result = await handler(makeEvent('icon.svg', 100));
+    expect(result.valid).toBe(false);
+  });
+
+  test('.bmp 拡張子は invalid である', async () => {
+    const result = await handler(makeEvent('bitmap.bmp', 100));
+    expect(result.valid).toBe(false);
+  });
+
+  test('複数ドットのファイル名でも最後の拡張子で判定される in handler', async () => {
+    const result = await handler(makeEvent('2024.08.photo.jpeg', 2048));
+    expect(result.valid).toBe(true);
+    expect(result.fileKey).toBe('2024.08.photo.jpeg');
+  });
 });

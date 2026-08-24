@@ -190,3 +190,56 @@ describe('インフラ詳細', () => {
     });
   });
 });
+
+// ── DynamoDB 追加検証 ──────────────────────────────────────────────
+describe('DynamoDB 追加検証', () => {
+  test('DynamoDB テーブルが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::DynamoDB::Table', 1);
+  });
+
+  test('DynamoDB の BillingMode が PAY_PER_REQUEST である', () => {
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      BillingMode: 'PAY_PER_REQUEST',
+    });
+  });
+
+  test('DynamoDB Stream が NEW_IMAGE で有効化されている', () => {
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('NEW_IMAGE');
+  });
+
+  test('DynamoDB の KeySchema に fileKey が含まれる', () => {
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      KeySchema: Match.arrayWith([
+        Match.objectLike({ AttributeName: 'fileKey' }),
+      ]),
+    });
+  });
+});
+
+// ── S3 追加検証 ────────────────────────────────────────────────────
+describe('S3 追加検証', () => {
+  test('S3 バケットが 1 つ作成される', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 1);
+  });
+
+  test('S3 バケットの削除ポリシーが Delete である（dev 環境）', () => {
+    template.hasResource('AWS::S3::Bucket', {
+      DeletionPolicy: 'Delete',
+    });
+  });
+});
+
+// ── Lambda 追加検証 ────────────────────────────────────────────────
+describe('Lambda 追加検証', () => {
+  test('Lambda 関数が 3 つ以上作成される（Python + TS + Go + CDKカスタム）', () => {
+    const fns = template.findResources('AWS::Lambda::Function');
+    expect(Object.keys(fns).length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('Validator Lambda の Runtime が nodejs22.x である', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'nodejs22.x',
+    });
+  });
+});
