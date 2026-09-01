@@ -1,0 +1,15 @@
+# Python Lambda（lambda_src/）の lint / フォーマット設定
+# 姉妹リポジトリ（aws-bedrock-knowledgebase-rag）と同一の規約に揃えている。
+
+[tool.ruff]
+line-length = 100
+# CI の実行環境は 3.12 だが、retry.py は 3.11 CI を持つ姉妹リポジトリと
+# 共有するモジュールのため、下限の 3.11 に合わせて移植性を保つ
+# （py312 にすると PEP 695 のジェネリック構文を要求する UP047 が出る）
+target-version = "py311"
+
+[tool.ruff.lint]
+# E: pycodestyle / F: pyflakes / I: isort / UP: pyupgrade / B: bugbear
+select = ["E", "F", "I", "UP", "B"]
+# E501（行長）は black のフォーマットに委ねる
+ignore = ["E501"]

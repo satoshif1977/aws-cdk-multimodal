@@ -5,10 +5,12 @@ on:
     paths:
       - "lambda_src/process_doc/**"
       - ".github/workflows/python-test.yml"
+      - "pyproject.toml"
   pull_request:
     paths:
       - "lambda_src/process_doc/**"
       - ".github/workflows/python-test.yml"
+      - "pyproject.toml"
 
 jobs:
   test:
@@ -26,7 +28,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install pytest pytest-cov boto3
+        run: pip install pytest pytest-cov boto3 ruff black
+
+      - name: ruff（構文チェック）
+        run: ruff check .
+
+      - name: black（フォーマットチェック）
+        run: black --check .
 
       - name: Run pytest
         # ディレクトリ指定で全テストを実行する（ファイル列挙だと

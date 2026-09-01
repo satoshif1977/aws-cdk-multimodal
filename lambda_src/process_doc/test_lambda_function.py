@@ -9,29 +9,31 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # ── モジュールレベルの env var と boto3 クライアントを差し替えてから import ──
 os.environ.setdefault("TABLE_NAME", "test-analysis-table")
-os.environ.setdefault("MODEL_ID",   "test-model-id")
+os.environ.setdefault("MODEL_ID", "test-model-id")
 
 # boto3 のグローバルクライアントを mock で差し替え
-_mock_s3       = MagicMock()
+_mock_s3 = MagicMock()
 _mock_dynamodb = MagicMock()
-_mock_bedrock  = MagicMock()
+_mock_bedrock = MagicMock()
 
 with (
-    patch("boto3.client", side_effect=lambda svc, **kw: _mock_s3 if svc == "s3" else _mock_bedrock),
+    patch(
+        "boto3.client",
+        side_effect=lambda svc, **kw: _mock_s3 if svc == "s3" else _mock_bedrock,
+    ),
     patch("boto3.resource", return_value=_mock_dynamodb),
 ):
     import lambda_function as lf
 
 
 # ── ヘルパー ──────────────────────────────────────────────────
-def make_event(bucket: str = "test-bucket", key: str = "photo.jpg", size: int = 1024) -> dict:
+def make_event(
+    bucket: str = "test-bucket", key: str = "photo.jpg", size: int = 1024
+) -> dict:
     return {
         "detail": {
             "bucket": {"name": bucket},
@@ -93,7 +95,9 @@ class TestLambdaHandlerImage:
         _mock_s3.get_object.return_value = {"Body": mock_body}
 
         # Bedrock 分析結果
-        _mock_bedrock.invoke_model.return_value = make_bedrock_response("美しい山の写真です")
+        _mock_bedrock.invoke_model.return_value = make_bedrock_response(
+            "美しい山の写真です"
+        )
 
         # DynamoDB テーブル
         _mock_table = MagicMock()
@@ -175,12 +179,19 @@ class TestLambdaHandlerError:
         _mock_dynamodb.Table.return_value = MagicMock()
 
     def test_missing_bucket_returns_400(self) -> None:
-        event = {"detail": {"bucket": {"name": ""}, "object": {"key": "photo.jpg", "size": 100}}}
+        event = {
+            "detail": {
+                "bucket": {"name": ""},
+                "object": {"key": "photo.jpg", "size": 100},
+            }
+        }
         result = lf.lambda_handler(event, None)
         assert result["statusCode"] == 400
 
     def test_missing_key_returns_400(self) -> None:
-        event = {"detail": {"bucket": {"name": "bucket"}, "object": {"key": "", "size": 100}}}
+        event = {
+            "detail": {"bucket": {"name": "bucket"}, "object": {"key": "", "size": 100}}
+        }
         result = lf.lambda_handler(event, None)
         assert result["statusCode"] == 400
 
