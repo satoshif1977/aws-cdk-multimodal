@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import boto3
 
@@ -133,10 +133,12 @@ def lambda_handler(event: dict, context: object) -> dict:
         bucket = record["bucket"]
         key = record["key"]
         size = record["size"]
-        uploaded_at = datetime.now(timezone.utc).isoformat()
+        uploaded_at = datetime.now(UTC).isoformat()
         media_type = get_media_type(key)
 
-        logger.info(f"ファイルアップロード検知: bucket={bucket}, key={key}, size={size} bytes")
+        logger.info(
+            f"ファイルアップロード検知: bucket={bucket}, key={key}, size={size} bytes"
+        )
 
         item: dict = {
             "fileKey": key,

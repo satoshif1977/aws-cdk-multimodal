@@ -14,8 +14,6 @@ import re
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # ── モジュールの再利用（test_lambda_function.py と同一プロセスで実行される場合）──
 os.environ.setdefault("TABLE_NAME", "test-analysis-table")
 os.environ.setdefault("MODEL_ID", "test-model-id")
