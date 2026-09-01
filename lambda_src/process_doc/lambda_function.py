@@ -2,9 +2,13 @@ import base64
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 
 import boto3
+
+sys.path.insert(0, os.path.dirname(__file__))
+from retry import RetryConfig, retry_call  # noqa: E402
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -22,6 +26,15 @@ SUPPORTED_IMAGE_TYPES: dict[str, str] = {
     ".webp": "image/webp",
 }
 
+# ── リトライ設定 ───────────────────────────────────────────
+# Bedrock は同時実行が増えると ThrottlingException を返すため、
+# 指数バックオフ + フルジッターで自動リトライする（retry.py を参照）
+RETRY_CONFIG = RetryConfig(
+    max_attempts=int(os.environ.get("RETRY_MAX_ATTEMPTS", "4")),
+    base_delay=float(os.environ.get("RETRY_BASE_DELAY", "0.5")),
+    max_delay=float(os.environ.get("RETRY_MAX_DELAY", "8.0")),
+)
+
 # ── AWS クライアント ───────────────────────────────────────
 s3_client = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
@@ -36,14 +49,25 @@ def get_media_type(key: str) -> str | None:
 
 
 def fetch_image_base64(bucket: str, key: str) -> str:
-    """S3 から画像を取得して Base64 エンコードした文字列を返す。"""
-    response = s3_client.get_object(Bucket=bucket, Key=key)
+    """
+    S3 から画像を取得して Base64 エンコードした文字列を返す。
+
+    SlowDown（S3 のスロットリング）は retry.py の指数バックオフで自動リトライする。
+    """
+    response = retry_call(
+        s3_client.get_object, Bucket=bucket, Key=key, config=RETRY_CONFIG
+    )
     image_bytes = response["Body"].read()
     return base64.standard_b64encode(image_bytes).decode("utf-8")
 
 
 def analyze_image(image_base64: str, media_type: str) -> str:
-    """Bedrock Claude にマルチモーダルリクエストを送り、画像分析テキストを返す。"""
+    """
+    Bedrock Claude にマルチモーダルリクエストを送り、画像分析テキストを返す。
+
+    ThrottlingException / ModelNotReadyException は retry.py の
+    指数バックオフで自動リトライする。
+    """
     body = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": 1024,
@@ -74,11 +98,13 @@ def analyze_image(image_base64: str, media_type: str) -> str:
         ],
     }
 
-    response = bedrock_client.invoke_model(
+    response = retry_call(
+        bedrock_client.invoke_model,
         modelId=MODEL_ID,
         contentType="application/json",
         accept="application/json",
         body=json.dumps(body),
+        config=RETRY_CONFIG,
     )
     result = json.loads(response["body"].read())
     return result["content"][0]["text"]
@@ -139,7 +165,8 @@ def lambda_handler(event: dict, context: object) -> dict:
         # None 値を持つキーを除去（DynamoDB は None 非対応）
         item = {k: v for k, v in item.items() if v is not None}
 
-        table.put_item(Item=item)
+        # ProvisionedThroughputExceededException に備えてリトライ付きで書き込む
+        retry_call(table.put_item, Item=item, config=RETRY_CONFIG)
         logger.info(f"DynamoDB 書き込み完了: fileKey={key}")
 
     return {

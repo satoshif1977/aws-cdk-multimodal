@@ -29,7 +29,9 @@ jobs:
         run: pip install pytest pytest-cov boto3
 
       - name: Run pytest
-        run: pytest test_lambda_function.py test_lambda_function_detail.py -v --cov=. --cov-report=xml
+        # ディレクトリ指定で全テストを実行する（ファイル列挙だと
+        # test_lambda_function_edge.py / test_retry.py が CI で流れないため）
+        run: pytest . -v --cov=. --cov-report=xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
