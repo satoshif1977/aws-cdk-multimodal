@@ -439,7 +439,54 @@ aws-vault exec personal-dev-source -- cdk destroy
 - **`NodejsFunction` の esbuild バンドリング**：TypeScript Lambda を個別に `tsc` でコンパイルしなくてよい。`entry` にソースファイルを指定するだけで CDK が esbuild を呼び出してバンドル・トランスパイルする
 - **Go Lambda のクロスコンパイル（Windows）**：`GOARCH=amd64 GOOS=linux go build` は Windows の cmd/bash では動かない。`tryBundle` 内で `process.platform === 'win32'` を判定し、PowerShell の `$env:GOARCH='amd64'` 構文に切り替えることで解決
 - **DynamoDB Stream + `DynamoEventSource`**：テーブルに `stream: StreamViewType.NEW_IMAGE` を追加し、`new DynamoEventSource(table, { startingPosition: TRIM_HORIZON })` を Lambda に addEventSource するだけでストリーム連携が完結
-- **CDK テストフレームワーク**：`aws-cdk-lib/assertions` を使うと CloudFormation テンプレートをユニットテストできる。`npx jest` で 29 テスト全件 PASS を確認済み（CDK Assertions 22件 + TypeScript validator 7件）。Go 4件・Python 25件も追加済み（合計 58件）
+- **CDK テストフレームワーク**：`aws-cdk-lib/assertions` を使うと CloudFormation テンプレートをユニットテストできる。CDK Assertions（`test/`）に加えて 3 言語の Lambda それぞれにユニットテストを持たせており、`npm test` / `go test ./...` / `pytest .` で実行できる（件数は増えていくため、実際の数は各コマンドの出力を参照）
+
+---
+
+## 運用品質ユーティリティ（言語をまたいで仕様を揃える）
+
+3 言語の Lambda を持つため、**ログ形式と AWS 呼び出しの粘り方**を言語ごとにバラバラにすると
+障害調査のたびに読み替えが必要になる。そこで共通仕様のユーティリティを各言語に並置している。
+
+| ユーティリティ | Python（`process_doc`） | TypeScript（`validator`） | Go（`notifier`） |
+|---|---|---|---|
+| リトライ | `retry.py` | 未適用 | 未適用 |
+| 構造化ロガー | `logger.py` | `logger.ts` | 未適用 |
+
+### 構造化ロガーの仕様
+
+| 要素 | 内容 |
+|---|---|
+| 出力形式 | 1 行の JSON（CloudWatch Logs Insights で検索・集計できる） |
+| 出力キー | `timestamp` / `level` / `message` に統一。**言語をまたいで同じクエリが使える** |
+| レベル | `debug` / `info` / `warn` / `error` / `silent`。`LOG_LEVEL` から解決し、**未知の値は例外を投げず既定値へ**（設定ミスでログが消える事故を防ぐ） |
+| マスキング | **キー名の部分一致**。記号を除いた小文字比較なので `accessKeyId` / `x-api-key` / `access_key` を同一視する |
+| 保護 | 循環参照 → `[Circular]` / 深さ・要素数・文字列長の上限超過 → `[Truncated]`。**ログ出力で本処理を止めない** |
+| 予約フィールド | `timestamp` / `level` / `message` はコンテキストから上書きできない（クエリの前提を守る） |
+
+例外は型名・メッセージ・スタックに展開する。`json.dumps` / `JSON.stringify` は例外を
+そのまま扱えず、**障害調査で最も必要な情報が消えてしまう**ため。
+
+### CloudWatch Logs Insights クエリ例
+
+出力キーを揃えているので、Lambda の実装言語を問わず同じクエリで追える。
+
+```
+fields @timestamp, level, message, request_id
+| filter level in ["warn", "error"]
+| sort @timestamp desc
+| limit 50
+```
+
+### リトライとの結線
+
+```python
+# Python（process_doc）
+retry_call(lambda: bedrock.invoke_model(**kwargs), on_retry=retry_logger(log, "invoke_model"))
+```
+
+リトライの試行回数・待機秒数・例外が同じ JSON 形式で出力されるため、
+「何回粘って諦めたのか」をログだけで追える。
 
 ---
 
@@ -464,22 +511,23 @@ aws-vault exec personal-dev-source -- cdk destroy
 ```bash
 npm install
 npm test
-# CDK Assertions 21件 + validator 21件（validateRecord 10件 + handler 11件）= 計 42 件を検証
 ```
 
-| テストグループ | 件数 | 検証内容 |
-|---|---|---|
-| CDK Assertions（`test/`） | 21 件 | S3・DynamoDB・Lambda・IAM・EventBridge の設定値を検証 |
-| validateRecord（`lambda_src/validator/`） | 10 件 | 拡張子判定・サイズ制限・URL デコード・境界値 |
-| handler（`lambda_src/validator/`） | 11 件 | EventBridge 経由のハンドラー・日本語キー・plus エンコード |
-| **合計** | **42 件** | |
+| テストファイル | 検証内容 |
+|---|---|
+| `test/aws-cdk-multimodal.test.ts` / `-detail.test.ts` | S3・DynamoDB・Lambda・IAM・EventBridge の設定値（CDK Assertions） |
+| `lambda_src/validator/validators.test.ts` | 拡張子判定・サイズ制限・URL デコード・境界値 |
+| `lambda_src/validator/index.test.ts` | EventBridge 経由のハンドラー・日本語キー・plus エンコード |
+| `lambda_src/validator/logger.test.ts` | 構造化ログ（レベル解決・マスキング・循環参照・切り詰め） |
+
+> テスト件数は追加のたびに変わるため、README には書かない（`npm test` の出力を参照）。
 
 ### Go テスト（Notifier Lambda）
 
 ```bash
 cd lambda_src/notifier
 go test ./... -v
-# 4件 PASS（INSERT フィルタリング・CloudWatch namespace 確認）
+# INSERT フィルタリング・CloudWatch namespace・異常系を検証
 ```
 
 ### Python テスト（ProcessDoc Lambda）
@@ -487,9 +535,12 @@ go test ./... -v
 ```bash
 cd lambda_src/process_doc
 pip install pytest boto3
-pytest test_lambda_function.py -v
-# 25件 PASS（get_media_type 全拡張子・画像/ドキュメント/異常系）
+pytest . -v
+# get_media_type 全拡張子・画像/ドキュメント/異常系・リトライ・構造化ログを検証
 ```
+
+> **ファイル指定（`pytest test_lambda_function.py`）にしないこと。**
+> `retry.py` / `logger.py` のテストが実行されず、壊れても気づけなくなる。
 
 ### CDK 構成確認
 
