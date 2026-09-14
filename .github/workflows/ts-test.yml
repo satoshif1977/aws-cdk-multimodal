@@ -4,11 +4,15 @@ on:
   push:
     branches: [main]
     paths:
+      - "lib/**"
+      - "bin/**"
       - "lambda_src/validator/**"
       - "test/**"
       - ".github/workflows/ts-test.yml"
   pull_request:
     paths:
+      - "lib/**"
+      - "bin/**"
       - "lambda_src/validator/**"
       - "test/**"
       - ".github/workflows/ts-test.yml"
