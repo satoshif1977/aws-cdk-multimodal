@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -22,10 +22,16 @@ type MetricPutter interface {
 
 var cwClient MetricPutter
 
+// logger is the structured logger shared by this package.
+// Using logger.go keeps sensitive values masked by key name and lets
+// LOG_LEVEL control verbosity at runtime.
+var logger = NewLoggerFromEnv(LoggerOptions{})
+
 func init() {
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
-		log.Fatalf("failed to load AWS config: %v", err)
+		logger.Error("failed to load AWS config", "error", err.Error())
+		os.Exit(1)
 	}
 	cwClient = cloudwatch.NewFromConfig(cfg)
 }
@@ -40,11 +46,17 @@ func namespace() string {
 
 // processRecords is the testable core logic: sends a CloudWatch metric for
 // each INSERT record using the provided MetricPutter.
-func processRecords(ctx context.Context, event events.DynamoDBEvent, client MetricPutter) (int, error) {
-	var published int
+func processRecords(
+	ctx context.Context,
+	event events.DynamoDBEvent,
+	client MetricPutter,
+	l *slog.Logger,
+) (int, error) {
+	var published, skipped int
 
 	for _, record := range event.Records {
 		if record.EventName != "INSERT" {
+			skipped++
 			continue
 		}
 
@@ -71,28 +83,33 @@ func processRecords(ctx context.Context, event events.DynamoDBEvent, client Metr
 			},
 		})
 		if err != nil {
+			l.Error("failed to publish metric",
+				"metric", "DocumentAnalyzed", "fileKey", fileKey, "error", err.Error())
 			return published, fmt.Errorf("PutMetricData failed for %s: %w", fileKey, err)
 		}
 
-		log.Printf("[METRIC] DocumentAnalyzed fileKey=%s", fileKey)
+		l.Info("published metric", "metric", "DocumentAnalyzed", "fileKey", fileKey)
 		published++
 	}
 
+	l.Debug("finished scanning stream records",
+		"total", len(event.Records), "published", published, "skipped", skipped)
 	return published, nil
 }
 
 // ProcessRecords sends a CloudWatch custom metric for each INSERT record
 // in the DynamoDB stream event. Returns the count of metrics published.
 func ProcessRecords(ctx context.Context, event events.DynamoDBEvent) (int, error) {
-	return processRecords(ctx, event, cwClient)
+	return processRecords(ctx, event, cwClient, logger)
 }
 
 func handler(ctx context.Context, event events.DynamoDBEvent) error {
 	count, err := ProcessRecords(ctx, event)
 	if err != nil {
+		logger.Error("handler failed", "error", err.Error())
 		return err
 	}
-	log.Printf("[DONE] published %d metrics", count)
+	logger.Info("handler finished", "published", count)
 	return nil
 }
 

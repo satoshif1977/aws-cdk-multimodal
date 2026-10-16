@@ -69,7 +69,7 @@ func TestProcessRecords_EventFilter_Table(t *testing.T) {
 					records[i] = events.DynamoDBEventRecord{EventName: name}
 				}
 			}
-			count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: records}, mock)
+			count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: records}, mock, testLogger())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -87,7 +87,7 @@ func TestProcessRecords_EventFilter_Table(t *testing.T) {
 
 func TestProcessRecords_NilRecords(t *testing.T) {
 	mock := &mockMetricPutter{}
-	count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: nil}, mock)
+	count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: nil}, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestProcessRecords_ErrorWrapsOriginal(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("test.pdf")},
 	}
-	_, err := processRecords(context.Background(), event, mock)
+	_, err := processRecords(context.Background(), event, mock, testLogger())
 	if !errors.Is(err, originalErr) {
 		t.Errorf("error should wrap original: got %v", err)
 	}
@@ -115,7 +115,7 @@ func TestProcessRecords_ErrorContainsPutMetricDataFailed(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("err.pdf")},
 	}
-	_, err := processRecords(context.Background(), event, mock)
+	_, err := processRecords(context.Background(), event, mock, testLogger())
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -132,7 +132,7 @@ func TestProcessRecords_MetricStructure(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("structure/test.pdf")},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -200,7 +200,7 @@ func TestProcessRecords_EachRecordGetsOwnFileKey(t *testing.T) {
 			insertRecord("gamma.pdf"),
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestProcessRecords_StopsAtFirstError(t *testing.T) {
 			insertRecord("third.pdf"),
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err == nil {
 		t.Fatal("expected error on second record")
 	}
@@ -327,7 +327,7 @@ func TestProcessRecords_FileKey_Table(t *testing.T) {
 			event := events.DynamoDBEvent{
 				Records: []events.DynamoDBEventRecord{insertRecord(tt.fileKey)},
 			}
-			count, err := processRecords(context.Background(), event, mock)
+			count, err := processRecords(context.Background(), event, mock, testLogger())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -351,7 +351,7 @@ func BenchmarkProcessRecords_SingleInsert(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		processRecords(context.Background(), event, mock)
+		processRecords(context.Background(), event, mock, testLogger())
 	}
 }
 
@@ -364,7 +364,7 @@ func BenchmarkProcessRecords_TenInserts(b *testing.B) {
 	event := events.DynamoDBEvent{Records: records}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		processRecords(context.Background(), event, mock)
+		processRecords(context.Background(), event, mock, testLogger())
 	}
 }
 

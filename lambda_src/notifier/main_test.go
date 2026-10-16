@@ -60,7 +60,7 @@ func TestNamespace_EnvOverride(t *testing.T) {
 
 func TestProcessRecords_EmptyEvent(t *testing.T) {
 	mock := &mockMetricPutter{}
-	count, err := processRecords(context.Background(), events.DynamoDBEvent{}, mock)
+	count, err := processRecords(context.Background(), events.DynamoDBEvent{}, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestProcessRecords_SkipsModify(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{{EventName: "MODIFY"}},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil || count != 0 || len(mock.calls) != 0 {
 		t.Errorf("MODIFY should be skipped: count=%d err=%v calls=%d", count, err, len(mock.calls))
 	}
@@ -88,7 +88,7 @@ func TestProcessRecords_SkipsRemove(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{{EventName: "REMOVE"}},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil || count != 0 || len(mock.calls) != 0 {
 		t.Errorf("REMOVE should be skipped: count=%d err=%v calls=%d", count, err, len(mock.calls))
 	}
@@ -99,7 +99,7 @@ func TestProcessRecords_SingleInsert(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("doc/sample.pdf")},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestProcessRecords_MultipleInserts(t *testing.T) {
 			insertRecord("c.pdf"),
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestProcessRecords_MixedEvents(t *testing.T) {
 			{EventName: "REMOVE"},
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestProcessRecords_FileKeyPassedToMetric(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("reports/2026-07.pdf")},
 	}
-	_, _ = processRecords(context.Background(), event, mock)
+	_, _ = processRecords(context.Background(), event, mock, testLogger())
 
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
@@ -173,7 +173,7 @@ func TestProcessRecords_EmptyFileKey(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("")},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestProcessRecords_ErrorPropagation(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("fail.pdf")},
 	}
-	_, err := processRecords(context.Background(), event, mock)
+	_, err := processRecords(context.Background(), event, mock, testLogger())
 	if err == nil {
 		t.Error("expected error when PutMetricData fails")
 	}
@@ -258,7 +258,7 @@ func TestProcessRecords_ErrorPartialCount(t *testing.T) {
 			insertRecord("fail.pdf"),
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err == nil {
 		t.Error("expected error on second record")
 	}
@@ -273,7 +273,7 @@ func TestProcessRecords_LargeBatch(t *testing.T) {
 	for i := range records {
 		records[i] = insertRecord(fmt.Sprintf("file%d.pdf", i))
 	}
-	count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: records}, mock)
+	count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: records}, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestProcessRecords_AllSkipped(t *testing.T) {
 			{EventName: "MODIFY"},
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil || count != 0 || len(mock.calls) != 0 {
 		t.Errorf("expected all skipped: count=%d err=%v calls=%d", count, err, len(mock.calls))
 	}
@@ -305,7 +305,7 @@ func TestProcessRecords_MetricNamespace(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("x.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}
@@ -318,7 +318,7 @@ func TestProcessRecords_MetricValue(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("v.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}
@@ -331,7 +331,7 @@ func TestProcessRecords_MetricUnit(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("u.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}
@@ -344,7 +344,7 @@ func TestProcessRecords_DimensionName(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("d.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}

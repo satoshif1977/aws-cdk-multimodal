@@ -17,7 +17,7 @@ func TestProcessRecords_MetricNameIsDocumentAnalyzed(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("report.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}
@@ -30,7 +30,7 @@ func TestProcessRecords_TimestampNotNil(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("ts.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}
@@ -44,7 +44,7 @@ func TestProcessRecords_SingleMetricDataPerCall(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("single.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}
@@ -58,7 +58,7 @@ func TestProcessRecords_DimensionCount(t *testing.T) {
 	mock := &mockMetricPutter{}
 	_, _ = processRecords(context.Background(), events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("dim.pdf")},
-	}, mock)
+	}, mock, testLogger())
 	if len(mock.calls) == 0 {
 		t.Fatal("expected at least 1 CW call")
 	}
@@ -79,7 +79,7 @@ func TestProcessRecords_CountMatchesCalls(t *testing.T) {
 			insertRecord("c.pdf"),
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestProcessRecords_FileKeyInErrorMessage(t *testing.T) {
 	event := events.DynamoDBEvent{
 		Records: []events.DynamoDBEventRecord{insertRecord("problem-file.pdf")},
 	}
-	_, err := processRecords(context.Background(), event, mock)
+	_, err := processRecords(context.Background(), event, mock, testLogger())
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -110,7 +110,7 @@ func TestProcessRecords_FiveBatch(t *testing.T) {
 	for i := range records {
 		records[i] = insertRecord(fmt.Sprintf("batch%d.pdf", i))
 	}
-	count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: records}, mock)
+	count, err := processRecords(context.Background(), events.DynamoDBEvent{Records: records}, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestProcessRecords_SkipsUnknownEventName(t *testing.T) {
 			{EventName: "SYNC"},
 		},
 	}
-	count, err := processRecords(context.Background(), event, mock)
+	count, err := processRecords(context.Background(), event, mock, testLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,7 +233,7 @@ func FuzzProcessRecordsNoPanic(f *testing.F) {
 				},
 			},
 		}
-		count, err := processRecords(context.Background(), event, mock)
+		count, err := processRecords(context.Background(), event, mock, testLogger())
 		// INSERT のとき: count=1, err=nil（CW 成功）
 		// その他のとき: count=0, err=nil
 		if eventName == "INSERT" {
@@ -302,7 +302,7 @@ func FuzzInsertRecordFileKey(f *testing.F) {
 		event := events.DynamoDBEvent{
 			Records: []events.DynamoDBEventRecord{insertRecord(fileKey)},
 		}
-		count, err := processRecords(context.Background(), event, mock)
+		count, err := processRecords(context.Background(), event, mock, testLogger())
 		if err != nil {
 			t.Errorf("fileKey=%q: unexpected error: %v", fileKey, err)
 		}
