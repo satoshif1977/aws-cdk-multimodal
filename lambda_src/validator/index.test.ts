@@ -244,24 +244,33 @@ describe('handler', () => {
     expect(result.fileKey).toBe('my photo.jpg');
   });
 
-  test('console.warn が invalid 時に呼ばれる', async () => {
+  test('console.warn が invalid 時に呼ばれる（構造化ログ）', async () => {
     const spy = jest.spyOn(console, 'warn').mockImplementation();
     await handler(makeEvent('bad.bmp', 100));
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[INVALID]'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    const entry = JSON.parse(spy.mock.calls[0][0] as string);
+    expect(entry.level).toBe('warn');
+    expect(entry.s3Key).toBe('bad.bmp');
     spy.mockRestore();
   });
 
-  test('console.log が valid 時に呼ばれる', async () => {
+  test('console.log が valid 時に呼ばれる（構造化ログ）', async () => {
     const spy = jest.spyOn(console, 'log').mockImplementation();
     await handler(makeEvent('ok.png', 100));
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[VALID]'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    const entry = JSON.parse(spy.mock.calls[0][0] as string);
+    expect(entry.level).toBe('info');
+    expect(entry.s3Key).toBe('ok.png');
     spy.mockRestore();
   });
 
-  test('console.warn がサイズオーバー時に呼ばれる', async () => {
+  test('console.warn がサイズオーバー時に呼ばれる（構造化ログ）', async () => {
     const spy = jest.spyOn(console, 'warn').mockImplementation();
     await handler(makeEvent('huge.jpg', 11 * 1024 * 1024));
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[INVALID]'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    const entry = JSON.parse(spy.mock.calls[0][0] as string);
+    expect(entry.level).toBe('warn');
+    expect(entry.reason).toContain('exceeds limit');
     spy.mockRestore();
   });
 
