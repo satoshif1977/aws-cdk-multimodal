@@ -257,8 +257,12 @@ describe('handler', () => {
   test('console.log が valid 時に呼ばれる（構造化ログ）', async () => {
     const spy = jest.spyOn(console, 'log').mockImplementation();
     await handler(makeEvent('ok.png', 100));
-    expect(spy).toHaveBeenCalledTimes(1);
-    const entry = JSON.parse(spy.mock.calls[0][0] as string);
+    // metrics.ts の EMF も console.log に出るので、ログ行だけを取り出す
+    const logLines = spy.mock.calls
+      .map((call) => String(call[0]))
+      .filter((line) => !line.includes('"_aws"'));
+    expect(logLines).toHaveLength(1);
+    const entry = JSON.parse(logLines[0]);
     expect(entry.level).toBe('info');
     expect(entry.s3Key).toBe('ok.png');
     spy.mockRestore();

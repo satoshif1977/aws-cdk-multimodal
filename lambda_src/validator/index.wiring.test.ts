@@ -21,11 +21,26 @@ interface Captured {
 let captured: Captured;
 let spies: jest.SpyInstance[];
 
+/**
+ * EMF メトリクス（metrics.ts）も console.log に 1 行 JSON を書く。
+ * このファイルはログの結線を見るものなので、メトリクスの行は数えない。
+ * メトリクス側の結線は index.metrics.test.ts で見る。
+ */
+function isMetricsLine(line: string): boolean {
+  try {
+    return '_aws' in (JSON.parse(line) as Record<string, unknown>);
+  } catch {
+    return false;
+  }
+}
+
 beforeEach(() => {
   captured = { log: [], warn: [], error: [] };
   spies = [
     jest.spyOn(console, 'log').mockImplementation((line: unknown) => {
-      captured.log.push(String(line));
+      const text = String(line);
+      if (isMetricsLine(text)) return;
+      captured.log.push(text);
     }),
     jest.spyOn(console, 'warn').mockImplementation((line: unknown) => {
       captured.warn.push(String(line));
